@@ -4,8 +4,8 @@
 
 [![Home](https://img.shields.io/badge/Project-Homepage-pink.svg)](https://saifkhichi.com/research/spinepose/)
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-gold.svg)](https://doi.org/10.57967/hf/5114)
-[![arXiv](https://img.shields.io/badge/arXiv-2504.08110-B31B1B.svg)](https://arxiv.org/abs/2504.08110)
 [![Conference](https://img.shields.io/badge/CVPRW-2025-blue.svg)](https://openaccess.thecvf.com/content/CVPR2025W/CVSPORTS/html/Khan_Towards_Unconstrained_2D_Pose_Estimation_of_the_Human_Spine_CVPRW_2025_paper.html)
+[![arXiv](https://img.shields.io/badge/arXiv-2504.08110-B31B1B.svg)](https://arxiv.org/abs/2504.08110)
 [![PyPI version](https://img.shields.io/pypi/v/spinepose.svg)](https://pypi.org/project/spinepose/)
 ![PyPI - License](https://img.shields.io/pypi/l/spinepose)
 
@@ -141,13 +141,13 @@ All annotations are in COCO format and can be used with standard pose estimation
 If this project or dataset proves helpful in your work, please cite:
 
 ```bibtex
-@inproceedings{khan2025cvprw,
-    author    = {Khan, Muhammad Saif Ullah and Krauß, Stephan and Stricker, Didier},
+@InProceedings{Khan_2025_CVPR,
+    author    = {Khan, Muhammad Saif Ullah and Krau{\ss}, Stephan and Stricker, Didier},
     title     = {Towards Unconstrained 2D Pose Estimation of the Human Spine},
     booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
-    month     = {},
+    month     = {June},
     year      = {2025},
-    pages     = {}
+    pages     = {6171-6180}
 }
 ```
 
