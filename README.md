@@ -2,115 +2,121 @@
 
 <div align="center">
 
-[![Conference](https://img.shields.io/badge/CVPRW-2025-6b8bc7.svg?style=for-the-badge)](https://cvpr2025.thecvf.com/)
-[![PyPI version](https://img.shields.io/pypi/v/spinepose.svg?style=for-the-badge)](https://pypi.org/project/spinepose/)
-[![License](https://img.shields.io/badge/License-CC--BY--NC--4.0-lightgrey.svg?style=for-the-badge)](LICENSE)
+[![Home](https://img.shields.io/badge/Project-Homepage-pink.svg)](https://saifkhichi.com/research/spinepose/)
+[![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-gold.svg)](https://doi.org/10.57967/hf/5114)
+[![Conference](https://img.shields.io/badge/CVPRW-2025-blue.svg)](https://openaccess.thecvf.com/content/CVPR2025W/CVSPORTS/html/Khan_Towards_Unconstrained_2D_Pose_Estimation_of_the_Human_Spine_CVPRW_2025_paper.html)
+[![arXiv](https://img.shields.io/badge/arXiv-2504.08110-B31B1B.svg)](https://arxiv.org/abs/2504.08110)
+[![PyPI version](https://img.shields.io/pypi/v/spinepose.svg)](https://pypi.org/project/spinepose/)
+![PyPI - License](https://img.shields.io/pypi/l/spinepose)
 
-<div style="display: flex; flex-wrap: nowrap; gap: 10px;">
-  <div style="flex: 0 0 59%; display: flex; flex-direction: column; gap: 10px;">
-    <div style="
-      width: 100%;
-      aspect-ratio: 16/9; 
-      background: url('data/demo/outputs/video1.gif') no-repeat center center;
-      background-size: cover;
-    ">
-    </div>
-    <div style="
-      width: 100%;
-      aspect-ratio: 16/9; 
-      background: url('data/demo/outputs/video2.gif') no-repeat center center;
-      background-size: cover;
-    ">
-    </div>
-  </div>
-  <div style="
-    flex: 0 0 38%;
-    background: url('data/demo/outputs/video3.gif') no-repeat center center; 
-    background-size: cover;
-    aspect-ratio: 4/5; /* Adjust ratio to your preference */
-  ">
-  </div>
-</div>
-<p align="center"><em>Demo videos are sourced from <a href="https://www.pexels.com/">Pexels.com</a>.</em></p>
+![](data/demo/outputs/video1.gif)
+![](data/demo/outputs/video2.gif)
 </div>
 
 ---
 
-## Contents
-- [Abstract](#abstract)
-- [Installation](#installation)
-- [Inference](#inference)
-- [SpineTrack Dataset](#spinetrack-dataset)
-- [Training and Evaluation](#training-and-evaluation)
-- [Citation](#citation)
-- [License](#license)
+> __Abstract__: _We present SpineTrack, the first comprehensive dataset for 2D spine pose estimation in unconstrained settings, addressing a crucial need in sports analytics, healthcare, and realistic animation. Existing pose datasets often simplify the spine to a single rigid segment, overlooking the nuanced articulation required for accurate motion analysis. In contrast, SpineTrack annotates nine detailed spinal keypoints across two complementary subsets: a synthetic set comprising 25k annotations created using Unreal Engine with biomechanical alignment through OpenSim, and a real-world set comprising over 33k annotations curated via an active learning pipeline that iteratively refines automated annotations with human feedback. This integrated approach ensures anatomically consistent labels at scale, even for challenging, in-the-wild images. We further introduce SpinePose, extending state-of-the-art body pose estimators using knowledge distillation and an anatomical regularization strategy to jointly predict body and spine keypoints. Our experiments in both general and sports-specific contexts validate the effectiveness of SpineTrack for precise spine pose estimation, establishing a robust foundation for future research in advanced biomechanical analysis and 3D spine reconstruction in the wild._
+
+## Overview
+
+Official repository for the CVPR 2025 workshop paper "Towards Unconstrained 2D Pose Estimation of the Human Spine" by Muhammad Saif Ullah Khan, Stephan Krauß, and Didier Stricker. This project provides an easy-to-install Python package, pretrained model checkpoints, the SpineTrack dataset, and evaluation scripts to reproduce our results.
+
+- [Installation & Environment Setup](#installation-and-environment-setup)
+- [Preparing the Evaluation Datasets](#preparing-the-evaluation-datasets)
+- [Downloading Pretrained Models](#downloading-pretrained-models)
+- [Running Evaluation](#running-evaluation)
+
+If you use our models or dataset, please cite our work as described in the [Citation](#citation) section.
 
 ---
 
-## Abstract
-We introduce SpineTrack, the first comprehensive dataset dedicated to 2D spine pose estimation in unconstrained environments, addressing a critical gap in human pose analysis for sports and biomechanical applications. Existing pose datasets typically represent the spine with a single rigid segment, neglecting the detailed articulation required for precise analysis. To overcome this limitation, SpineTrack comprises two complementary components: SpineTrack-Real, a real-world dataset with high-fidelity spine annotations refined via an active learning pipeline, and SpineTrack-Unreal, a synthetic dataset generated using an Unreal Engine-based framework with accurate ground-truth labels. Additionally, we propose a novel biomechanical validation framework based on OpenSim to enforce anatomical consistency in the annotated keypoints. Complementing the dataset, our SpinePose model extends state-of-the-art body pose estimation networks through a teacher–student distillation approach and an anatomical regularization strategy, effectively incorporating detailed spine keypoints without sacrificing overall performance. Extensive experiments on standard benchmarks and sports-specific scenarios demonstrate that our approach significantly improves spine tracking accuracy while maintaining robust generalization.
+## Installation and Environment Setup
 
----
+MMPose, MMDetection, and MMCV are required to run the evaluation scripts. Please follow the instructions on [MMPose](https://mmpose.readthedocs.io/en/latest/installation.html) to get started.
 
-## Installation
-**Recommended Python Version:** 3.9–3.12
+We used Python 3.8 with the following package versions for evaluation:
+
+```plain
+mmcv==2.1.0
+mmdet==3.2.0
+mmengine==0.10.7
+mmpose==1.3.2
+```
+
+## Preparing the Evaluation Datasets
+
+We use COCO, Halpe, and SpineTrack. Follow MMPose docs for COCO and Halpe:
+
+- COCO: https://mmpose.readthedocs.io/en/latest/dataset_zoo/2d_body_keypoint.html#coco  
+- Halpe: https://mmpose.readthedocs.io/en/latest/dataset_zoo/2d_wholebody_keypoint.html#halpe
+
+To get SpineTrack, either clone with Git LFS or download the two archives:
 
 ```bash
-pip install spinepose
+# Option A: Git LFS (recommended)
+git lfs install
+git clone https://huggingface.co/datasets/saifkhichi96/spinetrack
+
+# Option B: direct download
+wget https://huggingface.co/datasets/saifkhichi96/spinetrack/resolve/main/annotations.zip
+wget https://huggingface.co/datasets/saifkhichi96/spinetrack/resolve/main/images.zip
+unzip annotations.zip -d data/spinetrack/
+unzip images.zip -d data/spinetrack/
 ```
 
-> [!NOTE]
-> For model training or reproducing the full pipeline, please refer to the [Training and Evaluation](#training-and-evaluation) section.
+Expected layout (place under `data/spinetrack/`):
 
-## Inference
+```plaintext
+data/
+└─ spinetrack/
+   ├─ annotations/
+   │  └─ person_keypoints_val2017.json
+   └─ images/
+      └─ val2017/
+```
 
-The `spinepose` package provides a command-line interface and a Python API for quick spinal keypoint predictions on images and videos.
+Only the annotations and val2017 images are required for evaluation.
 
-### Using the CLI
+## Downloading Pretrained Models
+
+To download the pretrained SpinePose models, run:
 
 ```bash
-spinepose -i /path/to/image_or_video -o /path/to/output
+./scripts/download_models.sh
 ```
 
-This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use spinepose -h to view all available options, including GPU usage and confidence thresholds.
+This willl create a `data/checkpoints/spinepose/` directory with the following files:
 
-### Using the Python API
-
-```python
-import cv2
-from spinepose import SpinePoseEstimator
-
-# Initialize estimator (downloads ONNX model if not found locally)
-estimator = SpinePoseEstimator(device='cuda')
-
-# Perform inference on a single image
-image = cv2.imread('path/to/image.jpg')
-keypoints, scores = estimator.predict(image)
-visualized = estimator.visualize(image, keypoints, scores)
-cv2.imwrite('output.jpg', visualized)
+```plaintext
+data/
+└─ checkpoints/
+   └─ spinepose/
+      ├─ spinepose-s_32xb256-10e_spinetrack-256x192.pth
+      ├─ spinepose-m_32xb256-10e_spinetrack-256x192.pth
+      ├─ spinepose-l_32xb256-10e_spinetrack-256x192.pth
+      └─ spinepose-x_32xb128-10e_spinetrack-384x288.pth
 ```
 
-Or, for a simplified interface:
+## Running Evaluation
 
-```python
-from spinepose.inference import infer_image, infer_video
+Run evaluation on SpineTrack using:
 
-# Single image inference
-infer_image('path/to/image.jpg', 'output.jpg')
-
-# Video inference with optional temporal smoothing
-infer_video('path/to/video.mp4', 'output_video.mp4', use_smoothing=True)
+```bash
+./scripts/evaluate_models.sh
 ```
 
-## SpineTrack Dataset
+This will run evaluation for all four models on the SpineTrack validation set and print the results:
 
-> [!NOTE]
-> Detailed dataset documentation will be added soon, including download links, annotation structure, and usage guidelines.
+```plain
+Model               Body AP   Body AR   Feet AP   Feet AR   Spine AP  Spine AR  
+--------------------------------------------------------------------------------
+spinepose-s         79.25     82.11     77.45     82.97     89.61     90.76     
+spinepose-m         84.00     86.39     83.40     87.37     91.44     92.59     
+spinepose-l         85.44     87.68     85.59     89.25     90.95     92.17     
+spinepose-x         86.26     88.54     86.28     89.75     89.26     90.98
+```
 
-## Training and Evaluation
-
-> [!NOTE]
-> Step-by-step guide and scripts for reproducing our training pipelines, baseline models, and evaluation metrics will be provided in the future.
+Detailed results will be saved in `work_dirs/` folder. To include COCO and Halpe evaluation, ensure the datasets are properly set up and set `include_coco` and `include_halpe` flags to `True` in [`configs/data_config.py`](configs/data_config.py).
 
 ---
 
@@ -119,13 +125,13 @@ infer_video('path/to/video.mp4', 'output_video.mp4', use_smoothing=True)
 If this project or dataset proves helpful in your work, please cite:
 
 ```bibtex
-@inproceedings{khan2025cvprw,
-    author    = {Khan, Muhammad Saif Ullah and Krauß, Stephan and Stricker, Didier},
+@InProceedings{Khan_2025_CVPR,
+    author    = {Khan, Muhammad Saif Ullah and Krau{\ss}, Stephan and Stricker, Didier},
     title     = {Towards Unconstrained 2D Pose Estimation of the Human Spine},
     booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
-    month     = {},
+    month     = {June},
     year      = {2025},
-    pages     = {}
+    pages     = {6171-6180}
 }
 ```
 

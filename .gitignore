@@ -178,3 +178,6 @@ work_dirs/
 *.mp4
 *.DS_Store
 *.onnx
+data/spinetrack
+data/checkpoints
+*.pth
