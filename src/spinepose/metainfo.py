@@ -5,7 +5,7 @@ metainfo = dict(
         title="Towards Unconstrained 2D Pose Estimation of the Human Spine",
         container="CVPRW",
         year="2025",
-        homepage="https://github.com/saifkhichi96/spinepose",
+        homepage="https://github.com/dfki-av/spinepose",
     ),
     keypoint_info={
         0: dict(name="nose", id=0, color=[204, 51, 51], type="upper", swap=""),
