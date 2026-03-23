@@ -66,9 +66,6 @@ spinepose --input_path path/to/video.mp4 --save-path output_path.json --spine-on
 
 This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use spinepose -h to view all available options, including GPU usage and confidence thresholds.
 
-> [!TIP]
-> **New in v2.0.1:** Use the `--model-version` flag to specify which pretrained model to use. For example, `--model-version v1` will load the original V1 models trained on the SpineTrack dataset, while `--model-version v2` or `--model-version latest` will load the newer V2 models trained on the SIMSPINE dataset. The default is `latest`, which always loads the most recent V2 model.
-
 ### Using the Python API
 
 ```python
@@ -98,62 +95,64 @@ results = infer_video('path/to/video.mp4', vis_path='output_video.mp4', use_smoo
 ```
 
 > [!TIP]
-> **New in v2.0.1:** Use the `model_version` parameter in the `SpinePoseEstimator` constructor or functional APIs to specify which pretrained model to use. For example, `SpinePoseEstimator(model_version='v1')` will load the original V1 models trained on the SpineTrack dataset, while `model_version='v2'` or `model_version='latest'` will load the newer V2 models trained on the SIMSPINE dataset.
+> **New in v2.0.1:** You can select pretrained model families in both CLI and Python API.
+> - CLI: use `--model-version v1|v2|latest` (for example, `--model-version v1`).
+> - Python API: use `model_version='v1'|'v2'|'latest'` (for example, `SpinePoseEstimator(model_version='v1')`).
+> 
+> `v1` loads models trained on SpineTrack, while `v2` and `latest` load the SIMSPINE-trained V2 models (`latest` is the default).
 
 ## Model Zoo
 
 ### SpinePose V2
 
-Details to be added soon.
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; text-align:center; font-family:Arial; font-size:13px;">
+  <thead style="background-color:#f0f0f0; font-weight:bold;">
+    <tr>
+      <th rowspan="2">Method</th>
+      <th rowspan="2">Training Data</th>
+      <th colspan="4">SpineTrack</th>
+      <th colspan="1">SIMSPINE</th>
+      <th rowspan="2">Usage</th>
+    </tr>
+    <tr>
+      <th>AP<sup>B</sup></th>
+      <th>AR<sup>B</sup></th>
+      <th>AP<sup>S</sup></th>
+      <th>AR<sup>S</sup></th>
+      <th>AUC</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>spinepose_v2_small</td><td rowspan="3">SpineTrack<br>+ SIMSPINE</td><td>0.788</td><td>0.815</td><td>0.920</td><td>0.929</td><td>0.790</td><td><code>--mode small --model-version v2</code></td></tr>
+    <tr><td>spinepose_v2_medium</td><td>0.821</td><td>0.846</td><td>0.928</td><td>0.937</td><td>0.798</td><td><code>--mode medium --model-version v2</code></td></tr>
+    <tr><td>spinepose_v2_large</td><td>0.840</td><td>0.862</td><td>0.917</td><td>0.927</td><td>0.803</td><td><code>--mode large --model-version v2</code></td></tr>
+  </tbody>
+</table>
 
 ### SpinePose V1
 
 <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; text-align:center; font-family:Arial; font-size:13px;">
   <thead style="background-color:#f0f0f0; font-weight:bold;">
     <tr>
-      <th>Method</th>
-      <th>Train Data</th>
-      <th>Kpts</th>
-      <th colspan="2">COCO</th>
-      <th colspan="2">Halpe26</th>
-      <th colspan="2">Body</th>
-      <th colspan="2">Feet</th>
-      <th colspan="2">Spine</th>
-      <th colspan="2">Overall</th>
-      <th>Params (M)</th>
-      <th>FLOPs (G)</th>
+      <th rowspan="2">Method</th>
+      <th rowspan="2">Training Data</th>
+      <th colspan="4">SpineTrack</th>
+      <th colspan="1">SIMSPINE</th>
+      <th rowspan="2">Usage</th>
     </tr>
     <tr>
-      <th></th><th></th><th></th>
-      <th>AP</th><th>AR</th>
-      <th>AP</th><th>AR</th>
-      <th>AP</th><th>AR</th>
-      <th>AP</th><th>AR</th>
-      <th>AP</th><th>AR</th>
-      <th>AP</th><th>AR</th>
-      <th></th><th></th>
+      <th>AP<sup>B</sup></th>
+      <th>AR<sup>B</sup></th>
+      <th>AP<sup>S</sup></th>
+      <th>AR<sup>S</sup></th>
+      <th>AUC</th>
     </tr>
   </thead>
   <tbody>
-    <tr><td>SimCC-MBV2</td><td>COCO</td><td>17</td><td>62.0</td><td>67.8</td><td>33.2</td><td>43.9</td><td>72.1</td><td>75.6</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.1</td><td>0.1</td><td>2.29</td><td>0.31</td></tr>
-    <tr><td>RTMPose-t</td><td>Body8</td><td>26</td><td>65.9</td><td>71.3</td><td>68.0</td><td>73.2</td><td>76.9</td><td>80.0</td><td>74.1</td><td>79.7</td><td>0.0</td><td>0.0</td><td>15.8</td><td>17.9</td><td>3.51</td><td>0.37</td></tr>
-    <tr><td>RTMPose-s</td><td>Body8</td><td>26</td><td>69.7</td><td>74.7</td><td>72.0</td><td>76.7</td><td>80.9</td><td>83.6</td><td>78.9</td><td>83.5</td><td>0.0</td><td>0.0</td><td>17.2</td><td>19.4</td><td>5.70</td><td>0.70</td></tr>
-    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-s</td><td>SpineTrack</td><td>37</td><td>68.2</td><td>73.1</td><td>70.6</td><td>75.2</td><td>79.1</td><td>82.1</td><td>77.5</td><td>82.9</td><td>89.6</td><td>90.7</td><td>84.2</td><td>86.2</td><td>5.98</td><td>0.72</td></tr>
-    <tr><td colspan="17" style="background-color:#d0d0d0; height:3px;"></td></tr>
-    <tr><td>SimCC-ViPNAS</td><td>COCO</td><td>17</td><td>69.5</td><td>75.5</td><td>36.9</td><td>49.7</td><td>79.6</td><td>83.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.2</td><td>0.2</td><td>8.65</td><td>0.80</td></tr>
-    <tr><td>RTMPose-m</td><td>Body8</td><td>26</td><td>75.1</td><td>80.0</td><td>76.7</td><td>81.3</td><td>85.5</td><td>87.9</td><td>84.1</td><td>88.2</td><td>0.0</td><td>0.0</td><td>19.4</td><td>21.4</td><td>13.93</td><td>1.95</td></tr>
-    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-m</td><td>SpineTrack</td><td>37</td><td>73.0</td><td>77.5</td><td>75.0</td><td>79.2</td><td>84.0</td><td>86.4</td><td>83.5</td><td>87.4</td><td>91.4</td><td>92.5</td><td>88.0</td><td>89.5</td><td>14.34</td><td>1.98</td></tr>
-    <tr><td colspan="17" style="background-color:#d0d0d0; height:3px;"></td></tr>
-    <tr><td>RTMPose-l</td><td>Body8</td><td>26</td><td>76.9</td><td>81.5</td><td>78.4</td><td>82.9</td><td>86.8</td><td>89.2</td><td>86.9</td><td>90.0</td><td>0.0</td><td>0.0</td><td>20.0</td><td>22.0</td><td>28.11</td><td>4.19</td></tr>
-    <tr><td>RTMW-m</td><td>Cocktail14</td><td>133</td><td>73.8</td><td>78.7</td><td>63.8</td><td>68.5</td><td>84.3</td><td>86.7</td><td>83.0</td><td>87.2</td><td>0.0</td><td>0.0</td><td>6.2</td><td>7.6</td><td>32.26</td><td>4.31</td></tr>
-    <tr><td>SimCC-ResNet50</td><td>COCO</td><td>17</td><td>72.1</td><td>78.2</td><td>38.7</td><td>51.6</td><td>81.8</td><td>85.2</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.2</td><td>0.2</td><td>36.75</td><td>5.50</td></tr>
-    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-l</td><td>SpineTrack</td><td>37</td><td>75.2</td><td>79.5</td><td>77.0</td><td>81.1</td><td>85.4</td><td>87.7</td><td>85.5</td><td>89.2</td><td>91.0</td><td>92.2</td><td>88.4</td><td>90.0</td><td>28.66</td><td>4.22</td></tr>
-    <tr><td colspan="17" style="background-color:#d0d0d0; height:3px;"></td></tr>
-    <tr><td>SimCC-ResNet50*</td><td>COCO</td><td>17</td><td>73.4</td><td>79.0</td><td>39.8</td><td>52.4</td><td>83.2</td><td>86.2</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.3</td><td>0.3</td><td>43.29</td><td>12.42</td></tr>
-    <tr><td>RTMPose-x*</td><td>Body8</td><td>26</td><td>78.8</td><td>83.4</td><td>80.0</td><td>84.4</td><td>88.6</td><td>90.6</td><td>88.4</td><td>91.4</td><td>0.0</td><td>0.0</td><td>21.0</td><td>22.9</td><td>50.00</td><td>17.29</td></tr>
-    <tr><td>RTMW-l*</td><td>Cocktail14</td><td>133</td><td>75.6</td><td>80.4</td><td>65.4</td><td>70.1</td><td>86.0</td><td>88.3</td><td>85.6</td><td>89.2</td><td>0.0</td><td>0.0</td><td>8.1</td><td>8.1</td><td>57.20</td><td>7.91</td></tr>
-    <tr><td>RTMW-l*</td><td>Cocktail14</td><td>133</td><td>77.2</td><td>82.3</td><td>66.6</td><td>71.8</td><td>87.3</td><td>89.9</td><td>88.3</td><td>91.3</td><td>0.0</td><td>0.0</td><td>8.6</td><td>8.6</td><td>57.35</td><td>17.69</td></tr>
-    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-x*</td><td>SpineTrack</td><td>37</td><td>75.9</td><td>80.1</td><td>77.6</td><td>81.8</td><td>86.3</td><td>88.5</td><td>86.3</td><td>89.7</td><td>89.3</td><td>91.0</td><td>88.9</td><td>89.9</td><td>50.69</td><td>17.37</td></tr>
+    <tr><td>spinepose_v1_small</td><td rowspan="4">SpineTrack</td><td>0.792</td><td>0.821</td><td>0.896</td><td>0.908</td><td>0.611</td><td><code>--mode small --model-version v1</code></td></tr>
+    <tr><td>spinepose_v1_medium</td><td>0.840</td><td>0.864</td><td>0.914</td><td>0.926</td><td>0.633</td><td><code>--mode medium --model-version v1</code></td></tr>
+    <tr><td>spinepose_v1_large</td><td>0.854</td><td>0.877</td><td>0.910</td><td>0.922</td><td>0.633</td><td><code>--mode large --model-version v1</code></td></tr>
+    <tr><td>spinepose_v1_xlarge</td><td>0.759</td><td>0.801</td><td>0.893</td><td>0.910</td><td>-</td><td><code>--mode xlarge --model-version v1</code></td></tr>
   </tbody>
 </table>
 
@@ -225,6 +224,55 @@ All annotations are in COCO format and can be used with standard pose estimation
 ### Evaluation
 
 We benchmark SpinePose V1 models against state-of-the-art lightweight pose estimation methods on COCO, Halpe, and our SpineTrack dataset. The results are summarized below, with SpinePose models highlighted in gray. Only 26 body keypoints are used for Halpe evaluations.
+
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; text-align:center; font-family:Arial; font-size:13px;">
+  <thead style="background-color:#f0f0f0; font-weight:bold;">
+    <tr>
+      <th>Method</th>
+      <th>Train Data</th>
+      <th>Kpts</th>
+      <th colspan="2">COCO</th>
+      <th colspan="2">Halpe26</th>
+      <th colspan="2">Body</th>
+      <th colspan="2">Feet</th>
+      <th colspan="2">Spine</th>
+      <th colspan="2">Overall</th>
+      <th>Params (M)</th>
+      <th>FLOPs (G)</th>
+    </tr>
+    <tr>
+      <th></th><th></th><th></th>
+      <th>AP</th><th>AR</th>
+      <th>AP</th><th>AR</th>
+      <th>AP</th><th>AR</th>
+      <th>AP</th><th>AR</th>
+      <th>AP</th><th>AR</th>
+      <th>AP</th><th>AR</th>
+      <th></th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>SimCC-MBV2</td><td>COCO</td><td>17</td><td>62.0</td><td>67.8</td><td>33.2</td><td>43.9</td><td>72.1</td><td>75.6</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.1</td><td>0.1</td><td>2.29</td><td>0.31</td></tr>
+    <tr><td>RTMPose-t</td><td>Body8</td><td>26</td><td>65.9</td><td>71.3</td><td>68.0</td><td>73.2</td><td>76.9</td><td>80.0</td><td>74.1</td><td>79.7</td><td>0.0</td><td>0.0</td><td>15.8</td><td>17.9</td><td>3.51</td><td>0.37</td></tr>
+    <tr><td>RTMPose-s</td><td>Body8</td><td>26</td><td>69.7</td><td>74.7</td><td>72.0</td><td>76.7</td><td>80.9</td><td>83.6</td><td>78.9</td><td>83.5</td><td>0.0</td><td>0.0</td><td>17.2</td><td>19.4</td><td>5.70</td><td>0.70</td></tr>
+    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-s</td><td>SpineTrack</td><td>37</td><td>68.2</td><td>73.1</td><td>70.6</td><td>75.2</td><td>79.1</td><td>82.1</td><td>77.5</td><td>82.9</td><td>89.6</td><td>90.7</td><td>84.2</td><td>86.2</td><td>5.98</td><td>0.72</td></tr>
+    <tr><td colspan="17" style="background-color:#d0d0d0; height:3px;"></td></tr>
+    <tr><td>SimCC-ViPNAS</td><td>COCO</td><td>17</td><td>69.5</td><td>75.5</td><td>36.9</td><td>49.7</td><td>79.6</td><td>83.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.2</td><td>0.2</td><td>8.65</td><td>0.80</td></tr>
+    <tr><td>RTMPose-m</td><td>Body8</td><td>26</td><td>75.1</td><td>80.0</td><td>76.7</td><td>81.3</td><td>85.5</td><td>87.9</td><td>84.1</td><td>88.2</td><td>0.0</td><td>0.0</td><td>19.4</td><td>21.4</td><td>13.93</td><td>1.95</td></tr>
+    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-m</td><td>SpineTrack</td><td>37</td><td>73.0</td><td>77.5</td><td>75.0</td><td>79.2</td><td>84.0</td><td>86.4</td><td>83.5</td><td>87.4</td><td>91.4</td><td>92.5</td><td>88.0</td><td>89.5</td><td>14.34</td><td>1.98</td></tr>
+    <tr><td colspan="17" style="background-color:#d0d0d0; height:3px;"></td></tr>
+    <tr><td>RTMPose-l</td><td>Body8</td><td>26</td><td>76.9</td><td>81.5</td><td>78.4</td><td>82.9</td><td>86.8</td><td>89.2</td><td>86.9</td><td>90.0</td><td>0.0</td><td>0.0</td><td>20.0</td><td>22.0</td><td>28.11</td><td>4.19</td></tr>
+    <tr><td>RTMW-m</td><td>Cocktail14</td><td>133</td><td>73.8</td><td>78.7</td><td>63.8</td><td>68.5</td><td>84.3</td><td>86.7</td><td>83.0</td><td>87.2</td><td>0.0</td><td>0.0</td><td>6.2</td><td>7.6</td><td>32.26</td><td>4.31</td></tr>
+    <tr><td>SimCC-ResNet50</td><td>COCO</td><td>17</td><td>72.1</td><td>78.2</td><td>38.7</td><td>51.6</td><td>81.8</td><td>85.2</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.2</td><td>0.2</td><td>36.75</td><td>5.50</td></tr>
+    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-l</td><td>SpineTrack</td><td>37</td><td>75.2</td><td>79.5</td><td>77.0</td><td>81.1</td><td>85.4</td><td>87.7</td><td>85.5</td><td>89.2</td><td>91.0</td><td>92.2</td><td>88.4</td><td>90.0</td><td>28.66</td><td>4.22</td></tr>
+    <tr><td colspan="17" style="background-color:#d0d0d0; height:3px;"></td></tr>
+    <tr><td>SimCC-ResNet50*</td><td>COCO</td><td>17</td><td>73.4</td><td>79.0</td><td>39.8</td><td>52.4</td><td>83.2</td><td>86.2</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.3</td><td>0.3</td><td>43.29</td><td>12.42</td></tr>
+    <tr><td>RTMPose-x*</td><td>Body8</td><td>26</td><td>78.8</td><td>83.4</td><td>80.0</td><td>84.4</td><td>88.6</td><td>90.6</td><td>88.4</td><td>91.4</td><td>0.0</td><td>0.0</td><td>21.0</td><td>22.9</td><td>50.00</td><td>17.29</td></tr>
+    <tr><td>RTMW-l*</td><td>Cocktail14</td><td>133</td><td>75.6</td><td>80.4</td><td>65.4</td><td>70.1</td><td>86.0</td><td>88.3</td><td>85.6</td><td>89.2</td><td>0.0</td><td>0.0</td><td>8.1</td><td>8.1</td><td>57.20</td><td>7.91</td></tr>
+    <tr><td>RTMW-l*</td><td>Cocktail14</td><td>133</td><td>77.2</td><td>82.3</td><td>66.6</td><td>71.8</td><td>87.3</td><td>89.9</td><td>88.3</td><td>91.3</td><td>0.0</td><td>0.0</td><td>8.6</td><td>8.6</td><td>57.35</td><td>17.69</td></tr>
+    <tr style="background-color:#e6e6e6; font-weight:bold;"><td>SpinePose-x*</td><td>SpineTrack</td><td>37</td><td>75.9</td><td>80.1</td><td>77.6</td><td>81.8</td><td>86.3</td><td>88.5</td><td>86.3</td><td>89.7</td><td>89.3</td><td>91.0</td><td>88.9</td><td>89.9</td><td>50.69</td><td>17.37</td></tr>
+  </tbody>
+</table>
 
 For evaluation instructions and to reproduce the results reported in our paper, please refer to the `evaluation` branch of this repository:
 
