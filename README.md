@@ -4,31 +4,22 @@ Lightweight CLI and Python API for spine-aware human pose estimation in the
 
 <div align="center">
 
-[![Home](https://img.shields.io/badge/Project-Homepage-pink.svg)](https://saifkhichi.com/research/spinepose/)
+[![SpinePose Homepage](https://img.shields.io/badge/Project-Home-334155.svg)](https://saifkhichi.com/projects/spinepose-inference/)
+[![Documentation](https://img.shields.io/badge/docs-passing-15803D.svg)](https://spinepose.readthedocs.io/)
 [![PyPI version](https://img.shields.io/pypi/v/spinepose.svg)](https://pypi.org/project/spinepose/)
 ![PyPI - License](https://img.shields.io/pypi/l/spinepose)
 
-![](data/demo/outputs/video1.gif)
-![](data/demo/outputs/video2.gif)
+<img src="data/demo/outputs/video1.gif" alt="Image Demo" width="48.7%"/>
+<img src="data/demo/outputs/video2.gif" alt="Image Demo" width="49%"/>
+
 </div>
 
 ---
 
 SpinePose is an inference library for spine-aware 2D human pose estimation in the wild. It provides a simple CLI and Python API for running inference on images and videos using pretrained models presented in our papers **"Towards Unconstrained 2D Pose Estimation of the Human Spine" (CVPR Workshops 2025)** and **"SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking" (CVPR 2026)**. Our models predict the SpineTrack skeleton hierarchy comprising 37 keypoints, including 9 directly along the spine chain in addition to the standard body joints.
 
-## Overview
+## Getting Started
 
-Official repository for the CVPR 2025 workshop paper "Towards Unconstrained 2D Pose Estimation of the Human Spine" by Muhammad Saif Ullah Khan, Stephan Krauß, and Didier Stricker. This project provides an easy-to-install Python package, pretrained model checkpoints, the SpineTrack dataset, and evaluation scripts to reproduce our results.
-
-- [Inference](#inference)  
-- [SpineTrack Dataset](#spinetrack-dataset)  
-- [Results and Evaluation](#results-and-evaluation) 
-
-If you use our models or dataset, please cite our work as described in the [Citation](#citation) section.
-
----
-
-## Inference
 **Recommended Python Version:** 3.9–3.12
 
 For quick spinal keypoint estimation, we release optimized ONNX models via the `spinepose` package on PyPI:
