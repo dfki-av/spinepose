@@ -1,11 +1,10 @@
-# Towards Unconstrained 2D Pose Estimation of the Human Spine
+# SpinePose Inference Library
+
+Lightweight CLI and Python API for spine-aware human pose estimation in the
 
 <div align="center">
 
 [![Home](https://img.shields.io/badge/Project-Homepage-pink.svg)](https://saifkhichi.com/research/spinepose/)
-[![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-gold.svg)](https://doi.org/10.57967/hf/5114)
-[![Conference](https://img.shields.io/badge/CVPRW-2025-blue.svg)](https://openaccess.thecvf.com/content/CVPR2025W/CVSPORTS/html/Khan_Towards_Unconstrained_2D_Pose_Estimation_of_the_Human_Spine_CVPRW_2025_paper.html)
-[![arXiv](https://img.shields.io/badge/arXiv-2504.08110-B31B1B.svg)](https://arxiv.org/abs/2504.08110)
 [![PyPI version](https://img.shields.io/pypi/v/spinepose.svg)](https://pypi.org/project/spinepose/)
 ![PyPI - License](https://img.shields.io/pypi/l/spinepose)
 
@@ -15,7 +14,7 @@
 
 ---
 
-> __Abstract__: _We present SpineTrack, the first comprehensive dataset for 2D spine pose estimation in unconstrained settings, addressing a crucial need in sports analytics, healthcare, and realistic animation. Existing pose datasets often simplify the spine to a single rigid segment, overlooking the nuanced articulation required for accurate motion analysis. In contrast, SpineTrack annotates nine detailed spinal keypoints across two complementary subsets: a synthetic set comprising 25k annotations created using Unreal Engine with biomechanical alignment through OpenSim, and a real-world set comprising over 33k annotations curated via an active learning pipeline that iteratively refines automated annotations with human feedback. This integrated approach ensures anatomically consistent labels at scale, even for challenging, in-the-wild images. We further introduce SpinePose, extending state-of-the-art body pose estimators using knowledge distillation and an anatomical regularization strategy to jointly predict body and spine keypoints. Our experiments in both general and sports-specific contexts validate the effectiveness of SpineTrack for precise spine pose estimation, establishing a robust foundation for future research in advanced biomechanical analysis and 3D spine reconstruction in the wild._
+SpinePose is an inference library for spine-aware 2D human pose estimation in the wild. It provides a simple CLI and Python API for running inference on images and videos using pretrained models presented in our papers **"Towards Unconstrained 2D Pose Estimation of the Human Spine" (CVPR Workshops 2025)** and **"SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking" (CVPR 2026)**. Our models predict the SpineTrack skeleton hierarchy comprising 37 keypoints, including 9 directly along the spine chain in addition to the standard body joints.
 
 ## Overview
 
@@ -64,6 +63,8 @@ options:
                         Model size. Choose from: xlarge, large, medium, small (default: medium)
   --nosmooth            Disable keypoint smoothing for video inference (default: enabled)
   --spine-only          Only use 9 spine keypoints (default: use all 37 keypoints)
+  --model-version MODEL_VERSION
+                        Model version to use. One of: 'latest', 'v2', 'v1' (default: latest)
 ```
 
 For example, to run inference on a video and save only spine keypoints in OpenPose format:
@@ -73,6 +74,9 @@ spinepose --input_path path/to/video.mp4 --save-path output_path.json --spine-on
 ```
 
 This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use spinepose -h to view all available options, including GPU usage and confidence thresholds.
+
+> [!TIP]
+> **New in v2.0.1:** Use the `--model-version` flag to specify which pretrained model to use. For example, `--model-version v1` will load the original V1 models trained on the SpineTrack dataset, while `--model-version v2` or `--model-version latest` will load the newer V2 models trained on the SIMSPINE dataset. The default is `latest`, which always loads the most recent V2 model.
 
 ### Using the Python API
 
@@ -102,51 +106,12 @@ results = infer_image('path/to/image.jpg', vis_path='output.jpg')
 results = infer_video('path/to/video.mp4', vis_path='output_video.mp4', use_smoothing=True)
 ```
 
-## SpineTrack Dataset
+> [!TIP]
+> **New in v2.0.1:** Use the `model_version` parameter in the `SpinePoseEstimator` constructor or functional APIs to specify which pretrained model to use. For example, `SpinePoseEstimator(model_version='v1')` will load the original V1 models trained on the SpineTrack dataset, while `model_version='v2'` or `model_version='latest'` will load the newer V2 models trained on the SIMSPINE dataset.
 
-SpineTrack is available on [HuggingFace](https://doi.org/10.57967/hf/5114). The dataset comprises:
+## Model Zoo
 
-- **SpineTrack-Real**
-  A collection of real-world images annotated with nine spinal keypoints in addition to standard body joints. An active learning pipeline, combining pretrained neural annotators and human corrections, refines keypoints across diverse poses.
-
-- **SpineTrack-Unreal**
-  A synthetic subset rendered using Unreal Engine, paired with precise ground-truth from a biomechanically aligned OpenSim model. These synthetic images facilitate pretraining and complement real-world data.
-
-To download:
-
-```bash
-git lfs install
-git clone https://huggingface.co/datasets/saifkhichi96/spinetrack
-```
-
-Alternatively, use `wget` to download the dataset directly:
-
-```bash
-wget https://huggingface.co/datasets/saifkhichi96/spinetrack/resolve/main/annotations.zip
-wget https://huggingface.co/datasets/saifkhichi96/spinetrack/resolve/main/images.zip
-```
-
-In both cases, the dataset will download two zipped folders: `annotations` (24.8 MB) and `images` (19.4 GB), which can be unzipped to obtain the following structure:
-
-```plaintext
-spinetrack
-├── annotations/
-│   ├── person_keypoints_train-real-coco.json
-│   ├── person_keypoints_train-real-yoga.json
-│   ├── person_keypoints_train-unreal.json
-│   └── person_keypoints_val2017.json
-└── images/
-    ├── train-real-coco/
-    ├── train-real-yoga/
-    ├── train-unreal/
-    └── val2017/
-```
-
-All annotations are in COCO format and can be used with standard pose estimation libraries.
-
-## Results and Evaluation
-
-We benchmark SpinePose against state-of-the-art lightweight pose estimation methods on COCO, Halpe, and our SpineTrack dataset. The results are summarized below, with SpinePose models highlighted in gray. Only 26 body keypoints are used for Halpe evaluations.
+### SpinePose V1
 
 <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; text-align:center; font-family:Arial; font-size:13px;">
   <thead style="background-color:#f0f0f0; font-weight:bold;">
@@ -197,6 +162,78 @@ We benchmark SpinePose against state-of-the-art lightweight pose estimation meth
   </tbody>
 </table>
 
+### SpinePose V2
+
+Details to be added soon.
+
+## Datasets
+
+### SpineTrack Dataset
+
+SpineTrack is available on [HuggingFace](https://doi.org/10.57967/hf/5114). The dataset comprises:
+
+- **SpineTrack-Real**
+  A collection of real-world images annotated with nine spinal keypoints in addition to standard body joints. An active learning pipeline, combining pretrained neural annotators and human corrections, refines keypoints across diverse poses.
+
+- **SpineTrack-Unreal**
+  A synthetic subset rendered using Unreal Engine, paired with precise ground-truth from a biomechanically aligned OpenSim model. These synthetic images facilitate pretraining and complement real-world data.
+
+To download:
+
+```bash
+git lfs install
+git clone https://huggingface.co/datasets/saifkhichi96/spinetrack
+```
+
+Alternatively, use `wget` to download the dataset directly:
+
+```bash
+wget https://huggingface.co/datasets/saifkhichi96/spinetrack/resolve/main/annotations.zip
+wget https://huggingface.co/datasets/saifkhichi96/spinetrack/resolve/main/images.zip
+```
+
+In both cases, the dataset will download two zipped folders: `annotations` (24.8 MB) and `images` (19.4 GB), which can be unzipped to obtain the following structure:
+
+```plaintext
+spinetrack
+├── annotations/
+│   ├── person_keypoints_train-real-coco.json
+│   ├── person_keypoints_train-real-yoga.json
+│   ├── person_keypoints_train-unreal.json
+│   └── person_keypoints_val2017.json
+└── images/
+    ├── train-real-coco/
+    ├── train-real-yoga/
+    ├── train-unreal/
+    └── val2017/
+```
+
+All annotations are in COCO format and can be used with standard pose estimation libraries.
+
+### SIMSPINE Dataset
+
+Details to be added soon.
+
+---
+
+## Related Publications and Citations
+
+If you use this work in your research, please cite the following related publications:
+
+<detail>
+<summary><strong>1. Towards Unconstrained 2D Pose Estimation of the Human Spine (CVSports @ CVPR 2025)</strong></summary>
+
+[![Home](https://img.shields.io/badge/Project-Homepage-pink.svg)](https://saifkhichi.com/research/spinepose/)
+[![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-gold.svg)](https://doi.org/10.57967/hf/5114)
+[![Conference](https://img.shields.io/badge/CVPRW-2025-blue.svg)](https://openaccess.thecvf.com/content/CVPR2025W/CVSPORTS/html/Khan_Towards_Unconstrained_2D_Pose_Estimation_of_the_Human_Spine_CVPRW_2025_paper.html)
+[![arXiv](https://img.shields.io/badge/arXiv-2504.08110-B31B1B.svg)](https://arxiv.org/abs/2504.08110)
+
+__Abstract__: _We present SpineTrack, the first comprehensive dataset for 2D spine pose estimation in unconstrained settings, addressing a crucial need in sports analytics, healthcare, and realistic animation. Existing pose datasets often simplify the spine to a single rigid segment, overlooking the nuanced articulation required for accurate motion analysis. In contrast, SpineTrack annotates nine detailed spinal keypoints across two complementary subsets: a synthetic set comprising 25k annotations created using Unreal Engine with biomechanical alignment through OpenSim, and a real-world set comprising over 33k annotations curated via an active learning pipeline that iteratively refines automated annotations with human feedback. This integrated approach ensures anatomically consistent labels at scale, even for challenging, in-the-wild images. We further introduce SpinePose, extending state-of-the-art body pose estimators using knowledge distillation and an anatomical regularization strategy to jointly predict body and spine keypoints. Our experiments in both general and sports-specific contexts validate the effectiveness of SpineTrack for precise spine pose estimation, establishing a robust foundation for future research in advanced biomechanical analysis and 3D spine reconstruction in the wild._
+
+---
+
+We benchmark SpinePose V1 models against state-of-the-art lightweight pose estimation methods on COCO, Halpe, and our SpineTrack dataset. The results are summarized below, with SpinePose models highlighted in gray. Only 26 body keypoints are used for Halpe evaluations.
+
 For evaluation instructions and to reproduce the results reported in our paper, please refer to the `evaluation` branch of this repository:
 
 ```bash
@@ -207,20 +244,43 @@ git checkout evaluation
 
 The [README in the evaluation branch](https://github.com/dfki-av/spinepose/blob/evaluation/README.md) provides detailed steps for setting up the evaluation environment and running the evaluation scripts on the SpineTrack dataset.
 
----
+</detail>
 
-## Citation
-
-If this project or dataset proves helpful in your work, please cite:
+__Citation__:
 
 ```bibtex
-@InProceedings{Khan_2025_CVPR,
+@InProceedings{Khan_2025_CVPRW,
     author    = {Khan, Muhammad Saif Ullah and Krau{\ss}, Stephan and Stricker, Didier},
     title     = {Towards Unconstrained 2D Pose Estimation of the Human Spine},
     booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
     month     = {June},
     year      = {2025},
     pages     = {6171-6180}
+}
+```
+
+<detail>
+<summary><strong>2. SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking (CVPR 2026)</strong></summary>
+
+[![SIMSPINE Homepage](https://img.shields.io/badge/Project-Home-pink.svg)](https://saifkhichi.com/research/simspine/)
+[![SIMSPINE Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SIMSPINE%20Dataset-gold.svg)](https://huggingface.co/datasets/dfki-av/simspine)
+[![Conference](https://img.shields.io/badge/CVPR-2026-blue.svg)](https://openaccess.thecvf.com/content/CVPR2026/html/Khan_SIMSPINE_A_Biomechanics-Aware_Simulation_Framework_for_3D_Spine_Motion_Annotation_and_Benchmarking_CVPR_2026_paper.html)
+[![arXiv](https://img.shields.io/badge/arXiv-2602.20792-B31B1B.svg)](https://arxiv.org/abs/2602.20792)
+
+__Abstract__: _Modeling spinal motion is fundamental to understanding human biomechanics, yet remains underexplored in computer vision due to the spine's complex multi-joint kinematics and the lack of large-scale 3D annotations. We present a biomechanics-aware keypoint simulation framework that augments existing human pose datasets with anatomically consistent 3D spinal keypoints derived from musculoskeletal modeling. Using this framework, we create the first open dataset, named SIMSPINE, which provides sparse vertebra-level 3D spinal annotations for natural full-body motions in indoor multi-camera capture without external restraints. With 2.14 million frames, this enables data-driven learning of vertebral kinematics from subtle posture variations and bridges the gap between musculoskeletal simulation and computer vision. In addition, we release pretrained baselines covering fine-tuned 2D detectors, monocular 3D pose lifting models, and multi-view reconstruction pipelines, establishing a unified benchmark for biomechanically valid spine motion estimation. Specifically, our 2D spine baselines improve the state-of-the-art from 0.63 to 0.80 AUC in controlled environments, and from 0.91 to 0.93 AP for in-the-wild spine tracking. Together, the simulation framework and SIMSPINE dataset advance research in vision-based biomechanics, motion analysis, and digital human modeling by enabling reproducible, anatomically grounded 3D spine estimation under natural conditions._
+
+</detail>
+
+__Citation__:
+
+```bibtex
+@InProceedings{Khan_2026_CVPR,
+    author    = {Khan, Muhammad Saif Ullah and Stricker, Didier},
+    title     = {SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2026},
+    pages     = {}
 }
 ```
 

@@ -83,6 +83,7 @@ class PoseTracker:
         smoothing_mincutoff: float = 0.1,  # Lower cutoff for smoothing (higher = less smoothing)
         smoothing_beta: float = 0.1,  # Speed coefficient (higher = more dynamic adaptation)
         smoothing_dcutoff: float = 1.0,  # Derivative cutoff frequency
+        model_version: str = "latest",
     ):
         """
         Args:
@@ -91,11 +92,13 @@ class PoseTracker:
             max_detections (int): Maximum number of detections to consider.
             tracking (bool): If True, tracking is enabled.
             tracking_thr (float): IoU threshold for associating bounding boxes.
+            model_version (str): Model version to use. One of: 'latest', 'v2', 'v1'.
         """
         self.solution = solution(
             mode=mode,
             backend=backend,
             device=device,
+            model_version=model_version,
         )
         self.det_frequency = det_frequency
         self.max_detections = max_detections

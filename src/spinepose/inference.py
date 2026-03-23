@@ -19,6 +19,7 @@ def infer_image(
     mode="medium",
     spine_only=False,
     vis_path=None,
+    model_version="latest",
 ) -> np.ndarray:
     """Perform pose estimation on a single image.
 
@@ -27,12 +28,13 @@ def infer_image(
         mode: Model size to use. One of: 'xlarge', 'large', 'medium', 'small'.
         spine_only: Whether to include only spine keypoints.
         vis_path: Optional path to save the output visualization.
+        model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
 
     Returns:
         A NumPy array of shape (1, N, 4) containing keypoints and scores,
         or an empty array if no keypoints are detected.
     """
-    model = SpinePoseEstimator(mode)
+    model = SpinePoseEstimator(mode, model_version=model_version)
 
     img = cv2.imread(input_path, cv2.IMREAD_COLOR)
     keypoints, scores = model(img)
@@ -69,6 +71,7 @@ def infer_video(
     spine_only=False,
     use_smoothing=True,
     vis_path=None,
+    model_version="latest",
 ) -> List[np.ndarray]:
     """Perform pose estimation on a video file.
 
@@ -78,6 +81,7 @@ def infer_video(
         spine_only: Whether to include only spine keypoints.
         use_smoothing: Whether to apply smoothing to keypoints over time.
         vis_path: Optional path to save the output video.
+        model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
 
     Returns:
         A list of NumPy arrays with keypoints and scores for each frame.
@@ -94,6 +98,7 @@ def infer_video(
         mode=mode,
         smoothing=use_smoothing,
         smoothing_freq=fps,
+        model_version=model_version,
     )
 
     writer = None
@@ -249,6 +254,12 @@ def main():
         action="store_true",
         help="Only use 9 spine keypoints (default: use all 37 keypoints)",
     )
+    parser.add_argument(
+        "--model-version",
+        type=str,
+        default="latest",
+        help="Model version to use. One of: 'latest', 'v2', 'v1' (default: latest)",
+    )
     args = parser.parse_args()
 
     if args.version:
@@ -263,6 +274,7 @@ def main():
             args.mode,
             spine_only=args.spine_only,
             vis_path=args.vis_path,
+            model_version=str(args.model_version),
         )
     elif _is_video(args.input_path):
         image_mode = False
@@ -272,6 +284,7 @@ def main():
             spine_only=args.spine_only,
             use_smoothing=args.nosmooth,
             vis_path=args.vis_path,
+            model_version=str(args.model_version)
         )
     else:
         raise ValueError(
