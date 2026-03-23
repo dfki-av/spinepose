@@ -20,12 +20,14 @@ def infer_image(
     spine_only=False,
     vis_path=None,
     model_version="latest",
+    detector="rfdetr",
 ) -> np.ndarray:
     """Perform pose estimation on a single image.
 
     Args:
         input_path: Path to the input image file.
         mode: Model size to use. One of: 'xlarge', 'large', 'medium', 'small'.
+        detector: Detector to use. One of: 'rfdetr', 'yolox'.
         spine_only: Whether to include only spine keypoints.
         vis_path: Optional path to save the output visualization.
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
@@ -34,7 +36,7 @@ def infer_image(
         A NumPy array of shape (1, N, 4) containing keypoints and scores,
         or an empty array if no keypoints are detected.
     """
-    model = SpinePoseEstimator(mode, model_version=model_version)
+    model = SpinePoseEstimator(mode, detector=detector, model_version=model_version)
 
     img = cv2.imread(input_path, cv2.IMREAD_COLOR)
     keypoints, scores = model(img)
@@ -72,12 +74,14 @@ def infer_video(
     use_smoothing=True,
     vis_path=None,
     model_version="latest",
+    detector="rfdetr",
 ) -> List[np.ndarray]:
     """Perform pose estimation on a video file.
 
     Args:
         input_path: Path to the input video file or 'webcam' for live video.
         mode: Model size to use. One of: 'xlarge', 'large', 'medium', 'small'.
+        detector: Detector to use. One of: 'rfdetr', 'yolox'.
         spine_only: Whether to include only spine keypoints.
         use_smoothing: Whether to apply smoothing to keypoints over time.
         vis_path: Optional path to save the output video.
@@ -102,6 +106,7 @@ def infer_video(
     pose_tracker = PoseTracker(
         SpinePoseEstimator,
         mode=mode,
+        detector=detector,
         smoothing=use_smoothing,
         smoothing_freq=fps,
         model_version=model_version,
@@ -255,6 +260,13 @@ def main():
         help="Model size. Choose from: xlarge, large, medium, small (default: medium)",
     )
     parser.add_argument(
+        "--detector",
+        type=str,
+        choices=["rfdetr", "yolox"],
+        default="rfdetr",
+        help="Detector backend. One of: 'rfdetr', 'yolox' (default: rfdetr)",
+    )
+    parser.add_argument(
         "--nosmooth",
         action="store_false",
         help="Disable keypoint smoothing for video inference (default: enabled)",
@@ -282,6 +294,7 @@ def main():
         results = infer_image(
             args.input_path,
             args.mode,
+            detector=args.detector,
             spine_only=args.spine_only,
             vis_path=args.vis_path,
             model_version=str(args.model_version),
@@ -291,6 +304,7 @@ def main():
         results = infer_video(
             args.input_path,
             args.mode,
+            detector=args.detector,
             spine_only=args.spine_only,
             use_smoothing=args.nosmooth,
             vis_path=args.vis_path,

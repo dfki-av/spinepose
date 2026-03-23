@@ -3,7 +3,7 @@ from typing import Tuple
 
 import numpy as np
 
-from .object_detection import YOLOX
+from .object_detection import RFDETR, YOLOX
 from .pose_estimation import RTMPose
 from .utils.multithreading import concurrent_forloop
 from .visualization import draw_skeleton
@@ -69,6 +69,7 @@ class BasePoseSolution:
         mode: str = "performance",
         backend: str = "onnxruntime",
         device: str = "auto",
+        detector: str = "yolox",
     ):
         self.metainfo = metainfo
         self.num_keypoints = len(metainfo["keypoint_info"])
@@ -91,10 +92,20 @@ class BasePoseSolution:
         self.backend = backend
         self.device = device
 
+        detector_map = {
+            "yolox": YOLOX,
+            "rfdetr": RFDETR,
+        }
+        detector_cls = detector_map.get(detector.lower())
+        if detector_cls is None:
+            raise ValueError(
+                f"Unsupported detector '{detector}'. Choose from: {list(detector_map.keys())}."
+            )
+
         # Initialize detection and pose models
-        self.det_model = YOLOX(
-            mode_config["det"],
-            model_input_size=mode_config["det_input_size"],
+        self.det_model = detector_cls(
+            mode_config[f"det_{detector.lower()}"],
+            model_input_size=mode_config[f"det_{detector.lower()}_input_size"],
             backend=backend,
             device=device,
         )

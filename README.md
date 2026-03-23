@@ -94,12 +94,19 @@ results = infer_image('path/to/image.jpg', vis_path='output.jpg')
 results = infer_video('path/to/video.mp4', vis_path='output_video.mp4', use_smoothing=True)
 ```
 
-> [!TIP]
-> **New in v2.0.1:** You can select pretrained model families in both CLI and Python API.
-> - CLI: use `--model-version v1|v2|latest` (for example, `--model-version v1`).
-> - Python API: use `model_version='v1'|'v2'|'latest'` (for example, `SpinePoseEstimator(model_version='v1')`).
-> 
-> `v1` loads models trained on SpineTrack, while `v2` and `latest` load the SIMSPINE-trained V2 models (`latest` is the default).
+## Release Notes
+
+### v2.0.2
+
+- Added detector selection in CLI/API: use `--detector rfdetr|yolox` (CLI) or `detector='rfdetr'|'yolox'` (Python).
+- Integrated RF-DETR as an alternative detector with YOLOX-compatible inference interfaces.
+
+### v2.0.1
+
+- Added model family selection in CLI/API.
+- CLI: use `--model-version v1|v2|latest` (for example, `--model-version v1`).
+- Python API: use `model_version='v1'|'v2'|'latest'` (for example, `SpinePoseEstimator(model_version='v1')`).
+- `v1` loads SpineTrack-trained models; `v2` and `latest` load SIMSPINE-trained V2 models (`latest` is default).
 
 ## Model Zoo
 

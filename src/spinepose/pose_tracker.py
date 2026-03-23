@@ -84,6 +84,7 @@ class PoseTracker:
         smoothing_beta: float = 0.1,  # Speed coefficient (higher = more dynamic adaptation)
         smoothing_dcutoff: float = 1.0,  # Derivative cutoff frequency
         model_version: str = "latest",
+        detector: str = "rfdetr",
     ):
         """
         Args:
@@ -96,6 +97,7 @@ class PoseTracker:
         """
         self.solution = solution(
             mode=mode,
+            detector=detector,
             backend=backend,
             device=device,
             model_version=model_version,
