@@ -76,7 +76,7 @@ def infer_video(
     """Perform pose estimation on a video file.
 
     Args:
-        input_path: Path to the input video file.
+        input_path: Path to the input video file or 'webcam' for live video.
         mode: Model size to use. One of: 'xlarge', 'large', 'medium', 'small'.
         spine_only: Whether to include only spine keypoints.
         use_smoothing: Whether to apply smoothing to keypoints over time.
@@ -87,11 +87,17 @@ def infer_video(
         A list of NumPy arrays with keypoints and scores for each frame.
         Empty arrays are included for frames with no detections.
     """
+    if input_path.lower() == "webcam":
+        input_path = 0  # OpenCV uses 0 for the default webcam
+
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
         raise ValueError(f"Cannot open video file {input_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0:
+        warnings.warn("FPS not detected, defaulting to 30")
+        fps = 30.0
 
     pose_tracker = PoseTracker(
         SpinePoseEstimator,
@@ -117,38 +123,42 @@ def infer_video(
 
     all_results = []
     while True:
-        ret, img = cap.read()
-        if not ret:
+        try:
+            ret, img = cap.read()
+            if not ret:
+                break
+
+            keypoints, scores = pose_tracker(img)
+
+            if spine_only and len(scores) > 0:
+                spine_ids = [36, 35, 18, 30, 29, 28, 27, 26, 19]
+                non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
+                scores[:, non_spine_ids] = 0
+
+            vis = pose_tracker.visualize(img, keypoints, scores)
+
+            # Display the result
+            _imshow(vis, "SpinePose Video Inference")
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+            # Save the frame if requested
+            if writer is not None:
+                vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+                writer.append_data(vis_rgb)
+
+            if len(keypoints) == 0:
+                all_results.append(np.array([]))
+                continue
+
+            # Append frame results
+            frame_results = np.concatenate([keypoints, scores[..., np.newaxis]], axis=-1)
+            if spine_only:
+                frame_results = frame_results[:, spine_ids, :]
+            all_results.append(frame_results)
+        except KeyboardInterrupt:
+            print("Inference interrupted by user.")
             break
-
-        keypoints, scores = pose_tracker(img)
-
-        if spine_only and len(scores) > 0:
-            spine_ids = [36, 35, 18, 30, 29, 28, 27, 26, 19]
-            non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
-            scores[:, non_spine_ids] = 0
-
-        vis = pose_tracker.visualize(img, keypoints, scores)
-
-        # Display the result
-        _imshow(vis, "SpinePose Video Inference")
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-
-        # Save the frame if requested
-        if writer is not None:
-            vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-            writer.append_data(vis_rgb)
-
-        if len(keypoints) == 0:
-            all_results.append(np.array([]))
-            continue
-
-        # Append frame results
-        frame_results = np.concatenate([keypoints, scores[..., np.newaxis]], axis=-1)
-        if spine_only:
-            frame_results = frame_results[:, spine_ids, :]
-        all_results.append(frame_results)
 
     cap.release()
     cv2.destroyAllWindows()
@@ -276,7 +286,7 @@ def main():
             vis_path=args.vis_path,
             model_version=str(args.model_version),
         )
-    elif _is_video(args.input_path):
+    elif _is_video(args.input_path) or args.input_path.lower() == "webcam":
         image_mode = False
         results = infer_video(
             args.input_path,
