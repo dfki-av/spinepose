@@ -39,6 +39,8 @@ class SpinePoseEstimator(BasePoseSolution):
         },
     }
 
+    SPINE_IDS = [19, 26, 27, 28, 29, 30, 18, 35, 36]
+
     def __init__(
         self,
         mode: str = "large",
@@ -75,15 +77,11 @@ class SpinePoseEstimator(BasePoseSolution):
         if self.version == "v1":
             keypoints, scores = self._smooth_spine(keypoints, scores)
 
-        # Hide latissimus dorsi and clavicle keypoints
-        # These keypoints are not used in the final output
-        hidden_ids = [31, 32, 33, 34]
-        scores[:, hidden_ids] = 0
         return keypoints, scores
 
     def _smooth_spine(self, keypoints, scores):
         """Smooth spine keypoints based on domain-specific rule."""
-        spine_ids = [36, 35, 18, 30, 29, 28, 27, 26, 19]
+        spine_ids = self.SPINE_IDS[:9]
         spine_keypoints = keypoints[:, spine_ids]
         spine_scores = scores[:, spine_ids]
 

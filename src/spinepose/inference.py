@@ -43,7 +43,7 @@ def infer_image(
         return np.array([])
 
     if spine_only:
-        spine_ids = [36, 35, 18, 30, 29, 28, 27, 26, 19]
+        spine_ids = model.SPINE_IDS
         non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
         scores[:, non_spine_ids] = 0
         keypoints[:, non_spine_ids, :] = 0
@@ -131,7 +131,7 @@ def infer_video(
             keypoints, scores = pose_tracker(img)
 
             if spine_only and len(scores) > 0:
-                spine_ids = [36, 35, 18, 30, 29, 28, 27, 26, 19]
+                spine_ids = pose_tracker.solution.SPINE_IDS
                 non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
                 scores[:, non_spine_ids] = 0
 

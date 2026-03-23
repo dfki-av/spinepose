@@ -64,7 +64,7 @@ metainfo = dict(
         14: dict(link=("spine_01", "hip"), id=14, color=[51, 153, 255]),
         18: dict(link=("left_shoulder", "left_elbow"), id=18, color=[0, 255, 0]),
         19: dict(link=("left_elbow", "left_wrist"), id=19, color=[0, 255, 0]),
-        20: dict(link=("left_shoulder", "right_shoulder"), id=20, color=[255, 128, 0]),
+        # 20: dict(link=("left_shoulder", "right_shoulder"), id=20, color=[255, 128, 0]),
         21: dict(link=("right_shoulder", "right_elbow"), id=21, color=[255, 128, 0]),
         22: dict(link=("right_elbow", "right_wrist"), id=22, color=[255, 128, 0]),
         23: dict(link=("left_eye", "right_eye"), id=23, color=[51, 153, 255]),
@@ -81,6 +81,12 @@ metainfo = dict(
         34: dict(link=("right_ankle", "right_big_toe"), id=34, color=[255, 128, 0]),
         35: dict(link=("right_ankle", "right_small_toe"), id=35, color=[255, 128, 0]),
         36: dict(link=("right_ankle", "right_heel"), id=36, color=[255, 128, 0]),
+        37: dict(link=("spine_05", "left_clavicle"), id=37, color=[0, 255, 0]),
+        38: dict(link=("spine_05", "right_clavicle"), id=38, color=[255, 128, 0]),
+        39: dict(link=("left_shoulder", "left_clavicle"), id=39, color=[0, 255, 0]),
+        40: dict(link=("right_clavicle", "right_shoulder"), id=40, color=[255, 128, 0]),
+        41: dict(link=("spine_04", "left_latissimus"), id=41, color=[0, 255, 0]),
+        42: dict(link=("spine_04", "right_latissimus"), id=42, color=[255, 128, 0]),
     },
     # the joint_weights is modified by MMPose Team
     joint_weights=[
