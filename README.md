@@ -1,6 +1,6 @@
 # SpinePose Inference Library
 
-Lightweight CLI and Python API for spine-aware human pose estimation in the
+Lightweight CLI and Python API for spine-aware human pose estimation in the wild.
 
 <div align="center">
 
