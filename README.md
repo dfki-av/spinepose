@@ -163,6 +163,16 @@ results = infer_video('path/to/video.mp4', vis_path='output_video.mp4', use_smoo
   </tbody>
 </table>
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=dfki-av%2Fspinepose&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=dfki-av/spinepose&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=dfki-av/spinepose&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=dfki-av/spinepose&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ---
 
 ## Related Publications and Citations
