@@ -19,6 +19,8 @@ Lightweight CLI and Python API for spine-aware human pose estimation in the wild
 SpinePose is an inference library for spine-aware 2D human pose estimation in the wild. It provides a simple CLI and Python API for running inference on images and videos using pretrained models presented in our papers **"Towards Unconstrained 2D Pose Estimation of the Human Spine" (CVPR Workshops 2025)** and **"SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking" (CVPR 2026)**. Our models predict the SpineTrack skeleton hierarchy comprising 37 keypoints, including 9 directly along the spine chain in addition to the standard body joints.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history and upcoming unreleased changes.
+Developer setup and contribution guidelines are documented in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Getting Started
 

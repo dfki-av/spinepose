@@ -1,3 +1,10 @@
 [build-system]
 requires = ["setuptools >= 42", "wheel"] # PEP 508 specs
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
