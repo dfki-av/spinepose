@@ -41,7 +41,12 @@ pip install spinepose[gpu]
 ### Using the CLI
 
 ```
-usage: spinepose [-h] (--version | --input_path INPUT_PATH) [--vis-path VIS_PATH] [--save-path SAVE_PATH] [--mode {xlarge,large,medium,small}] [--detector {rfdetr,yolox}] [--hardware-acceleration | --no-hardware-acceleration] [--mixed-precision | --no-mixed-precision] [--nosmooth] [--spine-only]
+usage: spinepose [-h] (--version | --input_path INPUT_PATH) [--vis-path VIS_PATH]
+                 [--save-path SAVE_PATH] [--mode {xlarge,large,medium,small}]
+                 [--detector {rfdetr,yolox}]
+                 [--max-detections MAX_DETECTIONS]
+                 [--hardware-acceleration | --no-hardware-acceleration]
+                 [--mixed-precision | --no-mixed-precision] [--spine-only] [--model-version MODEL_VERSION]
 
 SpinePose Inference
 
@@ -58,6 +63,8 @@ options:
                          Model size. Choose from: xlarge, large, medium, small (default: medium)
   --detector {rfdetr,yolox}
                          Detector backend. One of: 'rfdetr', 'yolox' (default: rfdetr)
+  --max-detections MAX_DETECTIONS
+                         Maximum number of detected people to track per video frame.
   --hardware-acceleration, --no-hardware-acceleration
                          Enable non-CPU execution providers when available (default: enabled)
   --mixed-precision, --no-mixed-precision

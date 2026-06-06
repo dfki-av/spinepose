@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -15,12 +17,12 @@ from spinepose._version import __version__
 
 
 def infer_image(
-    input_path,
-    mode="medium",
-    spine_only=False,
-    vis_path=None,
-    model_version="latest",
-    detector="rfdetr",
+    input_path: str,
+    mode: str = "medium",
+    spine_only: bool = False,
+    vis_path: str | None = None,
+    model_version: str = "latest",
+    detector: str = "rfdetr",
     hardware_acceleration: bool = True,
     mixed_precision: bool = False,
 ) -> np.ndarray:
@@ -33,7 +35,8 @@ def infer_image(
         spine_only: Whether to include only spine keypoints.
         vis_path: Optional path to save the output visualization.
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
-        hardware_acceleration: Whether to use non-CPU execution providers when available.
+        hardware_acceleration: Whether to use non-CPU execution providers when
+            available.
         mixed_precision: Whether to enable lower-precision execution when supported.
 
     Returns:
@@ -77,13 +80,14 @@ def infer_image(
 
 
 def infer_video(
-    input_path,
-    mode="medium",
-    spine_only=False,
-    use_smoothing=True,
-    vis_path=None,
-    model_version="latest",
-    detector="rfdetr",
+    input_path: str,
+    mode: str = "medium",
+    spine_only: bool = False,
+    use_smoothing: bool = True,
+    vis_path: str | None = None,
+    model_version: str = "latest",
+    detector: str = "rfdetr",
+    max_detections: int = 10,
     hardware_acceleration: bool = True,
     mixed_precision: bool = False,
 ) -> List[np.ndarray]:
@@ -97,7 +101,9 @@ def infer_video(
         use_smoothing: Whether to apply smoothing to keypoints over time.
         vis_path: Optional path to save the output video.
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
-        hardware_acceleration: Whether to use non-CPU execution providers when available.
+        hardware_acceleration: Whether to use non-CPU execution providers when
+            available.
+        max_detections: Maximum number of detected people to track per frame.
         mixed_precision: Whether to enable lower-precision execution when supported.
 
     Returns:
@@ -119,6 +125,7 @@ def infer_video(
         SpinePoseEstimator,
         mode=mode,
         detector=detector,
+        max_detections=max_detections,
         smoothing=use_smoothing,
         smoothing_freq=fps,
         model_version=model_version,
@@ -317,6 +324,12 @@ def main():
         help="Detector backend. One of: 'rfdetr', 'yolox' (default: rfdetr)",
     )
     parser.add_argument(
+        "--max-detections",
+        type=int,
+        default=10,
+        help="Maximum number of detected people to track per video frame.",
+    )
+    parser.add_argument(
         "--hardware-acceleration",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -369,6 +382,7 @@ def main():
             args.input_path,
             args.mode,
             detector=args.detector,
+            max_detections=args.max_detections,
             spine_only=args.spine_only,
             use_smoothing=args.nosmooth,
             vis_path=args.vis_path,

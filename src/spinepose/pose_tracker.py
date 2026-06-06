@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 from typing import Tuple
 
@@ -6,7 +8,7 @@ import numpy as np
 from .tools.smoothing import KeypointSmoothing
 
 
-def compute_iou(bboxA, bboxB):
+def compute_iou(bboxA: np.ndarray, bboxB: np.ndarray) -> float:
     """Computes the intersection-over-union between two boxes.
 
     Args:
@@ -72,14 +74,14 @@ class PoseTracker:
         tracking_thr: float = 0.3,
         # Smoother parameters
         smoothing: bool = False,
-        smoothing_freq: float = 30.0,  # Default frequency of the input data (e.g., 30 FPS video)
-        smoothing_mincutoff: float = 0.1,  # Lower cutoff for smoothing (higher = less smoothing)
-        smoothing_beta: float = 0.1,  # Speed coefficient (higher = more dynamic adaptation)
+        smoothing_freq: float = 30.0,
+        smoothing_mincutoff: float = 0.1,
+        smoothing_beta: float = 0.1,
         smoothing_dcutoff: float = 1.0,  # Derivative cutoff frequency
         model_version: str = "latest",
         detector: str = "rfdetr",
         **kwargs,
-    ):
+    ) -> None:
         """Initializes the pose tracker.
 
         Args:
@@ -104,6 +106,7 @@ class PoseTracker:
             model_version=model_version,
             **kwargs,
         )
+
         self.det_frequency = det_frequency
         self.max_detections = max_detections
         self.smoothing = smoothing
@@ -119,7 +122,7 @@ class PoseTracker:
         self.tracking_thr = tracking_thr
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the internal tracking state."""
         self.frame_cnt = 0
         self.next_id = 0
@@ -148,12 +151,13 @@ class PoseTracker:
         Returns:
             Tuple[np.ndarray, np.ndarray]: Keypoints and confidence scores.
         """
-        # Determine bounding boxes using detection (if available) or reuse from last frame
+        # Determine boxes using detection or reuse boxes from the last frame.
         if self.solution.det_model:
             if self.frame_cnt % self.det_frequency == 0:
                 bboxes = self.solution.detect(image)
             else:
                 bboxes = self.bboxes_last_frame
+            bboxes = bboxes[: self.max_detections]
         else:
             bboxes = None  # For solutions that don't use detection
 
@@ -185,7 +189,7 @@ class PoseTracker:
 
         # Smooth keypoints if enabled
         if self.smoothing:
-            # Map each detection to its track ID, then create or update the smoothing filter
+            # Map detections to track IDs, then update per-track filters.
             for i, (kpts, track_id) in enumerate(
                 zip(keypoints, self.track_ids_last_frame)
             ):
@@ -211,7 +215,7 @@ class PoseTracker:
 
         return keypoints, scores
 
-    def track_by_iou(self, bbox):
+    def track_by_iou(self, bbox: np.ndarray) -> tuple[int, float]:
         """Assigns a track ID using IoU against the previous frame.
 
         Args:
