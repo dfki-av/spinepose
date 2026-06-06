@@ -7,6 +7,8 @@ from ..base_tool import BaseTool
 
 
 class RFDETR(BaseTool):
+    """RF-DETR object detector."""
+
     imagenet_mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
     imagenet_std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     pixel_scale = np.float32(1.0 / 255.0)
@@ -14,14 +16,22 @@ class RFDETR(BaseTool):
     def __init__(
         self,
         onnx_model: str,
-        model_input_size: tuple = (576, 576),
+        model_input_size: tuple[int, int] = (576, 576),
         score_thr: float = 0.3,
         num_select: int = 300,
         class_ids: list[int] | None = [0],
-        backend: str = "onnxruntime",
-        device: str = "cpu",
-    ):
-        super().__init__(onnx_model, model_input_size, backend=backend, device=device)
+        **kwargs,
+    ) -> None:
+        """Initializes the detector.
+
+        Args:
+            onnx_model: Path to the ONNX model.
+            model_input_size: Model input size as ``(height, width)``.
+            score_thr: Minimum score required to keep a detection.
+            num_select: Maximum number of candidates to rank per image.
+            class_ids: Foreground class IDs to keep. Uses all classes when ``None``.
+        """
+        super().__init__(onnx_model, model_input_size, **kwargs)
         self.input_size = (int(model_input_size[0]), int(model_input_size[1]))
         if self.input_size[0] <= 0 or self.input_size[1] <= 0:
             raise ValueError(f"Invalid input_size: {self.input_size}")
@@ -40,10 +50,26 @@ class RFDETR(BaseTool):
 
     @staticmethod
     def _sigmoid(x: np.ndarray) -> np.ndarray:
+        """Applies the sigmoid function elementwise.
+
+        Args:
+            x: Input array.
+
+        Returns:
+            np.ndarray: Sigmoid-transformed values.
+        """
         return 1.0 / (1.0 + np.exp(-x))
 
     @staticmethod
     def _box_cxcywh_to_xyxy(boxes: np.ndarray) -> np.ndarray:
+        """Converts boxes from center-width-height to corner format.
+
+        Args:
+            boxes: Bounding boxes in ``cxcywh`` format.
+
+        Returns:
+            np.ndarray: Bounding boxes in ``xyxy`` format.
+        """
         cx = boxes[..., 0]
         cy = boxes[..., 1]
         w = np.clip(boxes[..., 2], a_min=0.0, a_max=None)
@@ -52,14 +78,51 @@ class RFDETR(BaseTool):
             [cx - 0.5 * w, cy - 0.5 * h, cx + 0.5 * w, cy + 0.5 * h], axis=-1
         )
 
+    @staticmethod
+    def _empty_detections() -> dict[str, np.ndarray]:
+        """Returns an empty detection payload.
+
+        Returns:
+            dict[str, np.ndarray]: Empty boxes and confidence arrays.
+        """
+        return {
+            "xyxy": np.empty((0, 4), dtype=np.float32),
+            "confidence": np.empty((0,), dtype=np.float32),
+        }
+
     def __call__(self, image: np.ndarray) -> np.ndarray:
+        """Runs detection and returns boxes only.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            np.ndarray: Detected bounding boxes.
+        """
+        return self.predict(image)["xyxy"]
+
+    def predict(self, image: np.ndarray) -> dict[str, np.ndarray]:
+        """Runs detection and returns boxes with confidence scores.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            dict[str, np.ndarray]: Detection payload with boxes and confidences.
+        """
         image, target_sizes = self.preprocess(image)
         outputs = self.inference(image)
-        return self.postprocess(outputs, target_sizes)
+        return self.postprocess(outputs, target_sizes, return_scores=True)
 
-    def preprocess(
-        self, image_rgb: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def preprocess(self, image_rgb: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Resizes and normalizes an RGB image for inference.
+
+        Args:
+            image_rgb: Input RGB image with shape ``[H, W, 3]``.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: Normalized image and original size tensor.
+        """
         if image_rgb.ndim != 3 or image_rgb.shape[2] != 3:
             raise ValueError("Expected image_rgb shape [H, W, 3].")
 
@@ -78,15 +141,30 @@ class RFDETR(BaseTool):
         return image_array, target_sizes
 
     def postprocess(
-        self, outputs: tuple[np.ndarray, ...], target_sizes: np.ndarray
-    ) -> np.ndarray:
+        self,
+        outputs: tuple[np.ndarray, ...],
+        target_sizes: np.ndarray,
+        return_scores: bool = False,
+    ) -> np.ndarray | dict[str, np.ndarray]:
+        """Converts model outputs into image-space detections.
+
+        Args:
+            outputs: Raw model outputs containing boxes and class logits.
+            target_sizes: Original image sizes as ``[[height, width], ...]``.
+            return_scores: When ``True``, returns boxes and confidences.
+
+        Returns:
+            np.ndarray | dict[str, np.ndarray]: Boxes only or a detection payload.
+        """
         if not isinstance(outputs, (list, tuple)) or len(outputs) < 2:
-            return np.empty((0, 4), dtype=np.float32)
+            empty = self._empty_detections()
+            return empty if return_scores else empty["xyxy"]
 
         out_bbox, out_logits = outputs
 
         if out_bbox.ndim != 3 or out_logits.ndim != 3:
-            return np.empty((0, 4), dtype=np.float32)
+            empty = self._empty_detections()
+            return empty if return_scores else empty["xyxy"]
 
         probs = self._sigmoid(out_logits)
         # RF-DETR exports include a background class at index 0.
@@ -97,16 +175,19 @@ class RFDETR(BaseTool):
         flat_probs = probs.reshape(batch_size, -1)
         num_topk = min(self.num_select, flat_probs.shape[1])
         if num_topk <= 0:
-            return np.empty((0, 4), dtype=np.float32)
+            empty = self._empty_detections()
+            return empty if return_scores else empty["xyxy"]
 
         if target_sizes.ndim != 2 or target_sizes.shape[1] != 2:
-            return np.empty((0, 4), dtype=np.float32)
+            empty = self._empty_detections()
+            return empty if return_scores else empty["xyxy"]
 
         if (
             out_bbox.shape[0] != out_logits.shape[0]
             or out_logits.shape[0] != target_sizes.shape[0]
         ):
-            return np.empty((0, 4), dtype=np.float32)
+            empty = self._empty_detections()
+            return empty if return_scores else empty["xyxy"]
 
         topk_unsorted_indices = np.argpartition(flat_probs, -num_topk, axis=1)[
             :, -num_topk:
@@ -145,7 +226,15 @@ class RFDETR(BaseTool):
                 }
             )
 
-        if not detections:
-            return np.empty((0, 4), dtype=np.float32)
+        kept_detections = [d for d in detections if len(d["xyxy"]) > 0]
+        if not kept_detections:
+            empty = self._empty_detections()
+            return empty if return_scores else empty["xyxy"]
 
-        return np.concatenate([d["xyxy"] for d in detections], axis=0)
+        merged_detections = {
+            "xyxy": np.concatenate([d["xyxy"] for d in kept_detections], axis=0),
+            "confidence": np.concatenate(
+                [d["confidence"] for d in kept_detections], axis=0
+            ),
+        }
+        return merged_detections if return_scores else merged_detections["xyxy"]

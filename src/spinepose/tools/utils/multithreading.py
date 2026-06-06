@@ -8,26 +8,16 @@ def concurrent_forloop(
     *iterables: Iterable,
     max_workers: Optional[int] = None,
 ) -> List[Any]:
-    """
-    Run a function concurrently on an iterable and return the results in order.
-
-    If max_workers is None, the ThreadPoolExecutor will determine the optimal
-    number of workers based on system resources.
-
-    This function also supports passing additional iterables to provide varying arguments
-    to the function. When additional iterables are provided, the function is called
-    with one item from each iterable concurrently, similar to the built-in map function.
+    """Runs a function concurrently over one or more iterables.
 
     Args:
-        func (Callable): The function to run on each element of the iterable.
-        iterable (Iterable): The primary iterable to process.
-        *iterables (Iterable): Optional additional iterables that provide varying arguments.
-        max_workers (Optional[int]): The maximum number of workers to use. Defaults to None,
-                                     which lets ThreadPoolExecutor decide based on system
-                                     resources.
+        func: Function to run for each item.
+        iterable: Primary iterable of inputs.
+        *iterables: Additional iterables zipped with the primary iterable.
+        max_workers: Maximum number of worker threads.
 
     Returns:
-        List[Any]: A list of results from the function.
+        List[Any]: Results in input order.
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         return list(executor.map(func, iterable, *iterables))

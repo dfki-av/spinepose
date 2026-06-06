@@ -3,6 +3,8 @@ from typing import List, NamedTuple, Optional
 
 
 class Keypoint(NamedTuple):
+    """Represents a detected keypoint."""
+
     x: float
     y: float
     score: float = 1.0
@@ -10,6 +12,8 @@ class Keypoint(NamedTuple):
 
 
 class BodyResult(NamedTuple):
+    """Represents body keypoints for one pose."""
+
     # Note: Using `Optional` instead of `|` operator as the ladder is a Python
     # 3.10 feature.
     # Annotator code should be Python 3.8 Compatible, as controlnet repo uses
@@ -25,6 +29,8 @@ FaceResult = List[Keypoint]
 
 
 class PoseResult(NamedTuple):
+    """Represents full-body, hand, and face pose results."""
+
     body: BodyResult
     left_hand: Optional[HandResult]
     right_hand: Optional[HandResult]

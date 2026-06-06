@@ -1,151 +1,211 @@
+"""Utilities for the ``posetrack.models.base`` module."""
+
+from __future__ import annotations
+
 import logging
 import os
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import Any, Optional, Tuple
 
-import cv2
 import numpy as np
 
 from .utils.file import download_checkpoint
-
-
-def check_mps_support():
-    try:
-        import onnxruntime
-
-        providers = onnxruntime.get_available_providers()
-        return (
-            "MPSExecutionProvider" in providers
-            or "CoreMLExecutionProvider" in providers
-        )
-    except ImportError:
-        return False
-
-
-RTMLIB_SETTINGS = {
-    "opencv": {
-        "cpu": (cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU),
-        # You need to manually build OpenCV through cmake
-        "cuda": (cv2.dnn.DNN_BACKEND_CUDA, cv2.dnn.DNN_TARGET_CUDA),
-    },
-    "onnxruntime": {
-        "cpu": "CPUExecutionProvider",
-        "cuda": "CUDAExecutionProvider",
-        "rocm": "ROCMExecutionProvider",
-        "mps": "CoreMLExecutionProvider"
-        if check_mps_support()
-        else "CPUExecutionProvider",
-    },
-}
+from .utils.deprecation import deprecated_arg
+from .utils.session import create_ort_session
 
 
 class BaseTool(metaclass=ABCMeta):
+    """Base class for ONNX-backed tool components."""
+
+    @deprecated_arg("backend")
+    @deprecated_arg("device", "hardware_acceleration", default=True)
     def __init__(
         self,
-        onnx_model: str = None,
-        model_input_size: tuple = None,
-        mean: tuple = None,
-        std: tuple = None,
-        backend: str = "opencv",
-        device: str = "cpu",
+        onnx_model: Optional[str] = None,
+        model_input_size: Optional[Tuple[int, int]] = None,
+        mean: Optional[Tuple[float, ...]] = None,
+        std: Optional[Tuple[float, ...]] = None,
+        hardware_acceleration: bool = True,
+        mixed_precision: bool = False,
     ):
+        """Initializes the base tool.
+
+        Args:
+            onnx_model: Path or URL to the ONNX model.
+            model_input_size: Model input size as ``(height, width)``.
+            mean: Optional channel-wise normalization mean.
+            std: Optional channel-wise normalization standard deviation.
+            hardware_acceleration: Whether to use non-CPU execution providers.
+            mixed_precision: Whether to enable lower-precision execution.
+        """
         if not os.path.exists(onnx_model):
             onnx_model = download_checkpoint(onnx_model)
 
-        if backend == "opencv":
-            try:
-                providers = RTMLIB_SETTINGS[backend][device]
+        self.session = create_ort_session(
+            model_path=onnx_model,
+            hardware_acceleration=hardware_acceleration,
+            tensor_rt=False,
+            mixed_precision=mixed_precision,
+        )
 
-                session = cv2.dnn.readNetFromONNX(onnx_model)
-                session.setPreferableBackend(providers[0])
-                session.setPreferableTarget(providers[1])
-                self.session = session
-            except Exception:
-                raise RuntimeError(
-                    "This model is not supported by OpenCV"
-                    " backend, please use `pip install"
-                    " onnxruntime` or `pip install"
-                    " onnxruntime-gpu` to install onnxruntime"
-                    " backend. Then specify `backend=onnxruntime`."
-                )  # noqa
-
-        elif backend == "onnxruntime":
-            import onnxruntime as ort
-
-            providers = RTMLIB_SETTINGS[backend][device]
-
-            self.session = ort.InferenceSession(
-                path_or_bytes=onnx_model, providers=[providers]
-            )
-
-        elif backend == "openvino":
-            from openvino.runtime import Core
-
-            core = Core()
-            model_onnx = core.read_model(model=onnx_model)
-
-            if device != "cpu":
-                logging.warning(
-                    "OpenVINO only supports CPU backend, automatically"
-                    " switched to CPU backend."
-                )
-
-            self.compiled_model = core.compile_model(
-                model=model_onnx,
-                device_name="CPU",
-                config={"PERFORMANCE_HINT": "LATENCY"},
-            )
-            self.input_layer = self.compiled_model.input(0)
-            self.output_layer0 = self.compiled_model.output(0)
-            self.output_layer1 = self.compiled_model.output(1)
-
-        else:
-            raise NotImplementedError
-
-        logging.info(f"load {onnx_model} with {backend} backend")
+        model_name = os.path.splitext(os.path.basename(onnx_model))[0]
+        prov_list = getattr(self.session, "get_providers", list)()
+        logging.info(
+            f"Model '{model_name}' initialized. Primary EP: '{prov_list[0] if prov_list else 'unknown'}'. "
+            f"Providers in use: {prov_list}"
+        )
 
         self.onnx_model = onnx_model
         self.model_input_size = model_input_size
-        self.mean = mean
-        self.std = std
-        self.backend = backend
-        self.device = device
+        self.mean = np.array(mean) if mean is not None else None
+        self.std = np.array(std) if std is not None else None
 
     @abstractmethod
     def __call__(self, *args, **kwargs) -> Any:
-        """Implement the actual function here."""
-        raise NotImplementedError
-
-    def inference(self, img: np.ndarray):
-        """Inference model.
+        """Runs the tool-specific forward pass.
 
         Args:
-            img (np.ndarray): Input image in shape.
+            *args: Positional arguments for the tool.
+            **kwargs: Keyword arguments for the tool.
 
         Returns:
-            outputs (np.ndarray): Output of RTMPose model.
+            Any: Tool-specific outputs.
         """
-        # build input to (1, 3, H, W)
-        img = img.transpose(2, 0, 1)
-        img = np.ascontiguousarray(img, dtype=np.float32)
-        input = img[None, :, :, :]
+        raise NotImplementedError
 
-        # run model
-        if self.backend == "opencv":
-            outNames = self.session.getUnconnectedOutLayersNames()
-            self.session.setInput(input)
-            outputs = self.session.forward(outNames)
-        elif self.backend == "onnxruntime":
-            sess_input = {self.session.get_inputs()[0].name: input}
-            sess_output = []
-            for out in self.session.get_outputs():
-                sess_output.append(out.name)
+    def close(self) -> None:
+        """Releases the underlying ONNX Runtime session reference."""
+        self.session = None
 
-            outputs = self.session.run(sess_output, sess_input)
-        elif self.backend == "openvino":
-            results = self.compiled_model(input)
-            output0 = results[self.output_layer0]
-            output1 = results[self.output_layer1]
-            outputs = [output0, output1]
+    @staticmethod
+    def _shape_dim_to_int(value):
+        """Converts a static shape dimension to an integer.
 
-        return outputs
+        Args:
+            value: Shape dimension value.
+
+        Returns:
+            Any: Positive integer dimension or ``None``.
+        """
+        if isinstance(value, int) and value > 0:
+            return value
+        return None
+
+    def _infer_input_layout(self, input_shape) -> str:
+        """Infers the model input layout.
+
+        Args:
+            input_shape: Input tensor shape metadata.
+
+        Returns:
+            str: Either ``"nchw"`` or ``"nhwc"``.
+        """
+        # Default to NCHW to preserve existing behavior for legacy models.
+        if not isinstance(input_shape, (list, tuple)) or len(input_shape) != 4:
+            return "nchw"
+
+        dim1 = self._shape_dim_to_int(input_shape[1])
+        dim3 = self._shape_dim_to_int(input_shape[3])
+        if dim1 in (1, 3, 4) and dim3 not in (1, 3, 4):
+            return "nchw"
+        if dim3 in (1, 3, 4) and dim1 not in (1, 3, 4):
+            return "nhwc"
+
+        # Fallback hint from symbolic axis names.
+        name1 = str(input_shape[1]).lower()
+        name3 = str(input_shape[3]).lower()
+        if "channel" in name1:
+            return "nchw"
+        if "channel" in name3:
+            return "nhwc"
+        return "nchw"
+
+    @staticmethod
+    def _merge_batched_outputs(chunk_outputs):
+        """Merges per-item outputs into batched outputs.
+
+        Args:
+            chunk_outputs: Sequence of outputs from single-item runs.
+
+        Returns:
+            Any: Batched output tuple.
+        """
+        if len(chunk_outputs) == 0:
+            return tuple()
+        num_outputs = len(chunk_outputs[0])
+        merged = []
+        for i in range(num_outputs):
+            parts = [chunk[i] for chunk in chunk_outputs]
+            merged.append(np.concatenate(parts, axis=0))
+        return tuple(merged)
+
+    def _run_session(self, x: np.ndarray):
+        """Runs the ONNX session.
+
+        Args:
+            x: Batched model input.
+
+        Returns:
+            Any: Session outputs.
+        """
+        input_meta = self.session.get_inputs()[0]
+        input_name = input_meta.name
+        output_names = [o.name for o in self.session.get_outputs()]
+
+        expected_batch = (
+            self._shape_dim_to_int(input_meta.shape[0])
+            if len(input_meta.shape) > 0
+            else None
+        )
+        if expected_batch == 1 and x.shape[0] != 1:
+            outputs = []
+            for i in range(x.shape[0]):
+                outputs.append(
+                    self.session.run(output_names, {input_name: x[i : i + 1]})
+                )
+            return self._merge_batched_outputs(outputs)
+
+        return tuple(self.session.run(output_names, {input_name: x}))
+
+    def inference(self, img: np.ndarray):
+        """Runs inference on an image or coordinate batch.
+
+        Args:
+            img: Input image in HWC/BHWC format, or coordinate batch with shape
+                ``(N, K, 2)``.
+
+        Returns:
+            Any: Session outputs.
+
+        Raises:
+            ValueError: If the input shape is not supported.
+        """
+        if img.ndim == 3 and img.shape[-1] == 2:
+            return self._run_session(img.astype(np.float32, copy=False))
+
+        if img.ndim not in [3, 4] or img.shape[-1] not in (1, 3, 4):
+            raise ValueError(
+                f"Expected HxWxC/BHxWxC image or NxKx2 coordinates, got {img.shape}"
+            )
+
+        # Normalize to BHWC first.
+        if img.ndim == 3:
+            x_bhwc = np.expand_dims(img, axis=0)
+        else:
+            x_bhwc = img
+
+        # If 4 channels (e.g., RGBA), drop alpha
+        if x_bhwc.shape[-1] == 4:
+            x_bhwc = x_bhwc[..., :3]
+        # If 1 channel (e.g., grayscale), repeat channel
+        elif x_bhwc.shape[-1] == 1:
+            x_bhwc = np.repeat(x_bhwc, 3, axis=-1)
+
+        input_shape = self.session.get_inputs()[0].shape
+        layout = self._infer_input_layout(input_shape)
+        if layout == "nhwc":
+            x = x_bhwc.astype(np.float32, copy=False)
+        else:
+            x = x_bhwc.transpose(0, 3, 1, 2).astype(np.float32, copy=False)
+
+        return self._run_session(x)

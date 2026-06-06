@@ -15,11 +15,22 @@ from tqdm import tqdm
 
 
 def _get_cache_dir():
+    """Returns the default local cache directory.
+
+    Returns:
+        str: Cache directory path.
+    """
     cache_dir = os.path.expanduser("~/.cache/spinepose")
     return os.path.join(cache_dir, "hub")
 
 
 def extract_zip(zip_file_path, extract_to_path):
+    """Extracts a ZIP archive to a target directory.
+
+    Args:
+        zip_file_path: Path to the ZIP archive.
+        extract_to_path: Destination directory.
+    """
     if not os.path.exists(extract_to_path):
         os.makedirs(extract_to_path)
 
@@ -28,18 +39,15 @@ def extract_zip(zip_file_path, extract_to_path):
 
 
 def download_url_to_file(url, dst, hash_prefix=None, progress=True):
-    """Download object at the given URL to a local path.
+    """Downloads a URL to a local file.
 
-    Modified from `torch.hub.download_url_to_file`.
+    Modified from ``torch.hub.download_url_to_file``.
 
     Args:
-        url (str): URL of the object to download
-        dst (str): Full path where object will be saved, for example,
-            ``/tmp/temporary_file``.
-        hash_prefix (str, optional): If not None, the SHA256 downloaded
-            file should start with ``hash_prefix``. Defaults to None.
-        progress (bool): whether or not to display a progress
-            bar to stderr Defaults to True.
+        url: URL to download.
+        dst: Destination file path.
+        hash_prefix: Optional SHA256 prefix to validate.
+        progress: Whether to show a progress bar.
     """
     file_size = None
     req = Request(url, headers={"User-Agent": "mmlmtools"})
@@ -98,30 +106,19 @@ def download_checkpoint(
     check_hash: bool = False,
     filename: Optional[str] = None,
 ) -> str:
-    """Download the checkpoint from the given URL.
+    """Downloads a checkpoint if it is not already cached.
 
-    Modified from `torch.hub.load_state_dict_from_url`.
-
-    If the object is already present in `dst_dir`, it will be returned
-    directly.
-    The default value of ``dst_dir`` is the same as the checkpoint cache
-    path of PyTorch hub.
+    Modified from ``torch.hub.load_state_dict_from_url``.
 
     Args:
-        url (str): URL of the object to download
-        model_dir (str, optional): directory in which to save the object
-        progress (bool, optional): whether or not to display a progress bar to
-            stderr. Defaults to True.
-        check_hash(bool, optional): If True, the filename part of the URL
-            should follow the naming convention ``filename-<sha256>.ext`` where
-            ``<sha256>`` is the first eight or more digits of the SHA256 hash
-            of the contents of the file. The hash is used to ensure unique
-            names and to verify the contents of the file. Defaults to False.
-        filename (str, optional): name for the downloaded file.
-            Filename from ``url`` will be used if not set.
+        url: URL to download.
+        dst_dir: Directory to cache the file in.
+        progress: Whether to show a progress bar.
+        check_hash: Whether to validate the hash from the filename.
+        filename: Optional override for the cached filename.
 
     Returns:
-        str: The path of the downloaded file.
+        str: Path to the cached checkpoint.
     """
     if dst_dir is None:
         dst_dir = os.path.join(_get_cache_dir(), "checkpoints")

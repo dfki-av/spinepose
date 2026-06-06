@@ -3,6 +3,8 @@ from OneEuroFilter import OneEuroFilter
 
 
 class KeypointSmoothing:
+    """Smooths keypoint coordinates with One Euro filters."""
+
     def __init__(
         self,
         num_keypoints,
@@ -11,17 +13,14 @@ class KeypointSmoothing:
         beta: float = 0.0,
         dcutoff: float = 1.0,
     ):
-        """Initialize the PoseFiltering class.
+        """Initializes the keypoint smoother.
 
         Args:
-            num_keypoints (int): Number of keypoints to filter.
-            freq (float): An estimate of the frequency in Hz of the signal (> 0), if timestamps are not available.
-            mincutoff (float, optional): Min cutoff frequency in Hz (> 0). Lower values allow to remove more jitter.
-            beta (float, optional): Parameter to reduce latency (> 0).
-            dcutoff (float, optional): Used to filter the derivates. 1 Hz by default. Change this parameter if you know what you are doing.
-
-        Raises:
-            ValueError: If one of the parameters is not >0
+            num_keypoints: Number of keypoints to smooth.
+            freq: Estimated signal frequency in hertz.
+            mincutoff: Minimum cutoff frequency.
+            beta: Speed coefficient for adaptive smoothing.
+            dcutoff: Cutoff frequency for the derivative filter.
         """
         kwargs = dict(
             freq=freq,
@@ -38,30 +37,27 @@ class KeypointSmoothing:
         ]
 
     def filter_keypoint(self, point, filters):
-        """Filter a single keypoint.
+        """Filters a single keypoint.
 
         Args:
-            point (np.array): The 3D keypoint to filter. Shape: (3,)
-            filters (dict): Filters for x and y coordinates.
+            point: Keypoint coordinates.
+            filters: Per-axis filters for the keypoint.
 
         Returns:
-            filtered_point (np.array): The filtered 3D keypoint. Shape: (3,)
+            np.ndarray: Smoothed keypoint coordinates.
         """
         filtered_x = filters["filter_x"](point[0])
         filtered_y = filters["filter_y"](point[1])
         return np.array([filtered_x, filtered_y])
 
     def __call__(self, keypoints):
-        """Filter all keypoints in a pose.
-
-        Only smooth the first person.
+        """Filters all keypoints in a pose.
 
         Args:
-            keypoints_3d (np.array): The 3D keypoints to filter. Shape: (K, 2)
-            timestamp (float): The timestamp in seconds.
+            keypoints: Keypoint coordinates for one pose.
 
         Returns:
-            filtered_keypoints (np.array): The filtered 3D keypoints. Shape: (num_keypoints, 3)
+            np.ndarray: Smoothed keypoint coordinates.
         """
         return np.array(
             [

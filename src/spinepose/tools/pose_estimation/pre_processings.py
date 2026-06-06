@@ -7,20 +7,14 @@ import numpy as np
 def bbox_xyxy2cs(
     bbox: np.ndarray, padding: float = 1.0
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Transform the bbox format from (x,y,w,h) into (center, scale)
+    """Converts bounding boxes to center and scale.
 
     Args:
-        bbox (ndarray): Bounding box(es) in shape (4,) or (n, 4), formatted
-            as (left, top, right, bottom)
-        padding (float): BBox padding factor that will be multilied to scale.
-            Default: 1.0
+        bbox: Bounding box array in ``xyxy`` format.
+        padding: Scale multiplier applied to the box size.
 
     Returns:
-        tuple: A tuple containing center and scale.
-        - np.ndarray[float32]: Center (x, y) of the bbox in shape (2,) or
-            (n, 2)
-        - np.ndarray[float32]: Scale (w, h) of the bbox in shape (2,) or
-            (n, 2)
+        Tuple[np.ndarray, np.ndarray]: Bounding-box center and scale.
     """
     # convert single bbox from (4, ) to (1, 4)
     dim = bbox.ndim
@@ -40,14 +34,14 @@ def bbox_xyxy2cs(
 
 
 def _rotate_point(pt: np.ndarray, angle_rad: float) -> np.ndarray:
-    """Rotate a point by an angle.
+    """Rotates a 2D point.
 
     Args:
-        pt (np.ndarray): 2D point coordinates (x, y) in shape (2, )
-        angle_rad (float): rotation angle in radian
+        pt: Point coordinates.
+        angle_rad: Rotation angle in radians.
 
     Returns:
-        np.ndarray: Rotated point in shape (2, )
+        np.ndarray: Rotated point.
     """
     sn, cs = np.sin(angle_rad), np.cos(angle_rad)
     rot_mat = np.array([[cs, -sn], [sn, cs]])
@@ -55,18 +49,14 @@ def _rotate_point(pt: np.ndarray, angle_rad: float) -> np.ndarray:
 
 
 def _get_3rd_point(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """To calculate the affine matrix, three pairs of points are required. This
-    function is used to get the 3rd point, given 2D points a & b.
-
-    The 3rd point is defined by rotating vector `a - b` by 90 degrees
-    anticlockwise, using b as the rotation center.
+    """Computes the third point used for affine transforms.
 
     Args:
-        a (np.ndarray): The 1st point (x,y) in shape (2, )
-        b (np.ndarray): The 2nd point (x,y) in shape (2, )
+        a: First point.
+        b: Second point.
 
     Returns:
-        np.ndarray: The 3rd point.
+        np.ndarray: Derived third point.
     """
     direction = a - b
     return b + np.r_[-direction[1], direction[0]]
@@ -80,23 +70,18 @@ def get_warp_matrix(
     shift: Tuple[float, float] = (0.0, 0.0),
     inv: bool = False,
 ) -> np.ndarray:
-    """Calculate the affine transformation matrix that can warp the bbox area
-    in the input image to the output size.
+    """Calculates an affine warp matrix.
 
     Args:
-        center (np.ndarray[2, ]): Center of the bounding box (x, y).
-        scale (np.ndarray[2, ]): Scale of the bounding box
-            wrt [width, height].
-        rot (float): Rotation angle (degree).
-        output_size (np.ndarray[2, ] | list(2,)): Size of the
-            destination heatmaps.
-        shift (0-100%): Shift translation ratio wrt the width/height.
-            Default (0., 0.).
-        inv (bool): Option to inverse the affine transform direction.
-            (inv=False: src->dst or inv=True: dst->src)
+        center: Bounding-box center.
+        scale: Bounding-box scale.
+        rot: Rotation angle in degrees.
+        output_size: Output image size as ``(width, height)``.
+        shift: Relative translation applied before warping.
+        inv: Whether to invert the transform direction.
 
     Returns:
-        np.ndarray: A 2x3 transformation matrix
+        np.ndarray: Affine transformation matrix.
     """
 
     shift = np.array(shift)
@@ -133,18 +118,16 @@ def get_warp_matrix(
 def top_down_affine(
     input_size: dict, bbox_scale: dict, bbox_center: dict, img: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Get the bbox image as the model input by affine transform.
+    """Applies top-down affine preprocessing to an image crop.
 
     Args:
-        input_size (dict): The input size of the model.
-        bbox_scale (dict): The bbox scale of the img.
-        bbox_center (dict): The bbox center of the img.
-        img (np.ndarray): The original image.
+        input_size: Model input size.
+        bbox_scale: Bounding-box scale.
+        bbox_center: Bounding-box center.
+        img: Original image.
 
     Returns:
-        tuple: A tuple containing center and scale.
-        - np.ndarray[float32]: img after affine transform.
-        - np.ndarray[float32]: bbox scale after affine transform.
+        Tuple[np.ndarray, np.ndarray]: Warped image and adjusted scale.
     """
     w, h = input_size
     warp_size = (int(w), int(h))

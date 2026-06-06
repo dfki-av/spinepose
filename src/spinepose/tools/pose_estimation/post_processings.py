@@ -6,24 +6,14 @@ import numpy as np
 def get_simcc_maximum(
     simcc_x: np.ndarray, simcc_y: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Get maximum response location and value from simcc representations.
-
-    Note:
-        instance number: N
-        num_keypoints: K
-        heatmap height: H
-        heatmap width: W
+    """Extracts peak locations and scores from SimCC outputs.
 
     Args:
-        simcc_x (np.ndarray): x-axis SimCC in shape (K, Wx) or (N, K, Wx)
-        simcc_y (np.ndarray): y-axis SimCC in shape (K, Wy) or (N, K, Wy)
+        simcc_x: X-axis SimCC tensor in ``(N, K, Wx)`` format.
+        simcc_y: Y-axis SimCC tensor in ``(N, K, Wy)`` format.
 
     Returns:
-        tuple:
-        - locs (np.ndarray): locations of maximum heatmap responses in shape
-            (K, 2) or (N, K, 2)
-        - vals (np.ndarray): values of maximum heatmap responses in shape
-            (K,) or (N, K)
+        Tuple[np.ndarray, np.ndarray]: Peak coordinates and confidence values.
     """
     N, K, Wx = simcc_x.shape
     simcc_x = simcc_x.reshape(N * K, -1)
