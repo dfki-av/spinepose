@@ -1,5 +1,5 @@
 # Code modified from https://github.com/IDEA-Research/DWPose/blob/opencv_onnx/ControlNet-v1-1-nightly/annotator/dwpose/cv_ox_det.py  # noqa
-from typing import List, Tuple
+from __future__ import annotations
 
 import cv2
 import numpy as np
@@ -12,32 +12,44 @@ class YOLOX(BaseTool):
     def __init__(
         self,
         onnx_model: str,
-        model_input_size: tuple = (640, 640),
-        nms_thr=0.45,
-        score_thr=0.7,
+        model_input_size: tuple[int, int] = (640, 640),
+        nms_thr: float = 0.45,
+        score_thr: float = 0.7,
         backend: str = "onnxruntime",
         device: str = "cpu",
-    ):
+    ) -> None:
+        """Initializes the YOLOX detector.
+
+        Args:
+            onnx_model: Path to the ONNX model.
+            model_input_size: Model input size as ``(height, width)``.
+            nms_thr: Non-maximum suppression threshold.
+            score_thr: Minimum score required to keep a detection.
+            backend: Inference backend name.
+            device: Inference device name.
+        """
         super().__init__(onnx_model, model_input_size, backend=backend, device=device)
         self.nms_thr = nms_thr
         self.score_thr = score_thr
 
-    def __call__(self, image: np.ndarray):
+    def __call__(self, image: np.ndarray) -> np.ndarray:
+        """Runs detection and returns boxes only."""
+        return self.predict(image)["xyxy"]
+
+    def predict(self, image: np.ndarray) -> dict[str, np.ndarray]:
+        """Runs detection and returns boxes with confidence scores."""
         image, ratio = self.preprocess(image)
         outputs = self.inference(image)[0]
-        return self.postprocess(outputs, ratio)
+        return self.postprocess(outputs, ratio, return_scores=True)
 
-    def preprocess(self, img: np.ndarray):
-        """Do preprocessing for RTMPose model inference.
+    def preprocess(self, img: np.ndarray) -> tuple[np.ndarray, float]:
+        """Pads and resizes an image for YOLOX inference.
 
         Args:
-            img (np.ndarray): Input image in shape.
+            img: Input image array.
 
         Returns:
-            tuple:
-            - resized_img (np.ndarray): Preprocessed image.
-            - center (np.ndarray): Center of image.
-            - scale (np.ndarray): Scale of image.
+            tuple[np.ndarray, float]: Preprocessed image and resize ratio.
         """
         if len(img.shape) == 3:
             padded_img = (
@@ -66,20 +78,23 @@ class YOLOX(BaseTool):
 
     def postprocess(
         self,
-        outputs: List[np.ndarray],
+        outputs: np.ndarray,
         ratio: float = 1.0,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Do postprocessing for RTMPose model inference.
+        return_scores: bool = False,
+    ) -> np.ndarray | dict[str, np.ndarray]:
+        """Converts model outputs into image-space detections.
 
         Args:
-            outputs (List[np.ndarray]): Outputs of RTMPose model.
-            ratio (float): Ratio of preprocessing.
+            outputs: Raw model outputs.
+            ratio: Resize ratio used during preprocessing.
+            return_scores: When ``True``, returns boxes and confidences.
 
         Returns:
-            tuple:
-            - final_boxes (np.ndarray): Final bounding boxes.
-            - final_scores (np.ndarray): Final scores.
+            np.ndarray | dict[str, np.ndarray]: Boxes only or a detection payload.
         """
+
+        final_boxes = np.empty((0, 4), dtype=np.float32)
+        final_scores = np.empty((0,), dtype=np.float32)
 
         if outputs.shape[-1] == 4:
             # onnx without nms module
@@ -123,6 +138,7 @@ class YOLOX(BaseTool):
                 iscat = final_cls_inds == 0
                 isbbox = [i and j for (i, j) in zip(isscore, iscat)]
                 final_boxes = final_boxes[isbbox]
+                final_scores = final_scores[isbbox]
 
         elif outputs.shape[-1] == 5:
             # onnx contains nms module
@@ -133,5 +149,11 @@ class YOLOX(BaseTool):
             isscore = final_scores > 0.3
             isbbox = list(isscore)
             final_boxes = final_boxes[isbbox]
+            final_scores = final_scores[isbbox]
 
+        if return_scores:
+            return {
+                "xyxy": final_boxes,
+                "confidence": final_scores,
+            }
         return final_boxes
