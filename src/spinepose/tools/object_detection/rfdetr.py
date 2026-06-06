@@ -18,7 +18,7 @@ class RFDETR(BaseTool):
         score_thr: float = 0.3,
         num_select: int = 300,
         class_ids: list[int] | None = [0],
-        device: str = "cpu",
+        **kwargs,
     ) -> None:
         """Initializes the RF-DETR detector.
 
@@ -28,9 +28,8 @@ class RFDETR(BaseTool):
             score_thr: Minimum score required to keep a detection.
             num_select: Maximum number of candidates to rank per image.
             class_ids: Foreground class IDs to keep. Uses all classes when ``None``.
-            device: Inference device name.
         """
-        super().__init__(onnx_model, model_input_size, device=device)
+        super().__init__(onnx_model, model_input_size, **kwargs)
         self.input_size = (int(model_input_size[0]), int(model_input_size[1]))
         if self.input_size[0] <= 0 or self.input_size[1] <= 0:
             raise ValueError(f"Invalid input_size: {self.input_size}")

@@ -9,45 +9,6 @@ from .utils.multithreading import concurrent_forloop
 from .visualization import draw_skeleton
 
 
-def get_device() -> str:
-    """
-    Get the device for running the model.
-
-    Returns:
-        str: The device to use.
-    """
-    try:
-        import onnxruntime as ort
-        import torch
-
-        available_providers = ort.get_available_providers()
-
-        if torch.cuda.is_available():
-            if "CUDAExecutionProvider" in available_providers:
-                device = "cuda"
-                logging.info("Using device: CUDA.")
-            elif "ROCMExecutionProvider" in available_providers:
-                device = "rocm"
-                logging.info("Using device: ROCM.")
-            else:
-                raise RuntimeError("No suitable GPU execution provider found.")
-        elif (
-            "CoreMLExecutionProvider" in available_providers
-        ):
-            device = "mps"
-            logging.info("Using device: MPS.")
-        else:
-            raise RuntimeError("No suitable GPU execution provider found.")
-    except Exception as e:
-        logging.warning(f"Error while checking GPU availability: {e}")
-
-        # Fallback to CPU
-        device = "cpu"
-        logging.info("Falling back to CPU.")
-
-    return device
-
-
 class BasePoseSolution:
     """
     Single-frame pose estimation solution.
@@ -66,8 +27,8 @@ class BasePoseSolution:
         metainfo: dict,
         config: dict,
         mode: str = "performance",
-        device: str = "auto",
         detector: str = "yolox",
+        **kwargs,
     ):
         self.metainfo = metainfo
         self.num_keypoints = len(metainfo["keypoint_info"])
@@ -83,12 +44,6 @@ class BasePoseSolution:
                     f"No supported mode found for {self.__class__.__name__}."
                 )
 
-        # Set the device
-        if device == "auto":
-            device = get_device()
-
-        self.device = device
-
         detector_map = {
             "yolox": YOLOX,
             "rfdetr": RFDETR,
@@ -103,12 +58,12 @@ class BasePoseSolution:
         self.det_model = detector_cls(
             mode_config[f"det_{detector.lower()}"],
             model_input_size=mode_config[f"det_{detector.lower()}_input_size"],
-            device=device,
+            **kwargs,
         )
         self.pose_model = RTMPose(
             mode_config["pose"],
             model_input_size=mode_config["pose_input_size"],
-            device=device,
+            **kwargs,
         )
 
     def detect(self, image: np.ndarray) -> np.ndarray:

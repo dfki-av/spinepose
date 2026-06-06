@@ -70,7 +70,6 @@ class PoseTracker:
         self,
         solution: type,
         mode: str = "large",
-        device: str = "auto",
         det_frequency: int = 1,
         max_detections: int = 10,
         # Tracking parameters
@@ -95,16 +94,11 @@ class PoseTracker:
             tracking_thr (float): IoU threshold for associating bounding boxes.
             model_version (str): Model version to use. One of: 'latest', 'v2', 'v1'.
         """
-        if "backend" in kwargs:
-            warnings.warn(
-                "The 'backend' argument is deprecated and will be removed in future versions. Please specify the device instead."
-            )
-
         self.solution = solution(
             mode=mode,
             detector=detector,
-            device=device,
             model_version=model_version,
+            **kwargs,
         )
         self.det_frequency = det_frequency
         self.max_detections = max_detections

@@ -73,7 +73,7 @@ import cv2
 from spinepose import SpinePoseEstimator
 
 # Initialize estimator (downloads ONNX model if not found locally)
-estimator = SpinePoseEstimator(device='cuda')
+estimator = SpinePoseEstimator()
 
 # Perform inference on a single image
 image = cv2.imread('path/to/image.jpg')
