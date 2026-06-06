@@ -14,10 +14,9 @@ class RTMPose(BaseTool):
         model_input_size: tuple = (288, 384),
         mean: tuple = (123.675, 116.28, 103.53),
         std: tuple = (58.395, 57.12, 57.375),
-        backend: str = "onnxruntime",
         device: str = "cpu",
     ):
-        super().__init__(onnx_model, model_input_size, mean, std, backend, device)
+        super().__init__(onnx_model, model_input_size, mean, std, device)
 
     def __call__(self, image: np.ndarray, bboxes: list = []):
         if len(bboxes) == 0:

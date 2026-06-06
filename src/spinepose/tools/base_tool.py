@@ -29,7 +29,6 @@ class BaseTool(metaclass=ABCMeta):
         model_input_size: tuple = None,
         mean: tuple = None,
         std: tuple = None,
-        backend: str = "onnxruntime",
         device: str = "cpu",
     ):
         if not os.path.exists(onnx_model):
@@ -40,13 +39,12 @@ class BaseTool(metaclass=ABCMeta):
             path_or_bytes=onnx_model, providers=[providers]
         )
 
-        logging.info(f"load {onnx_model} with {backend} backend")
+        logging.info(f"load {onnx_model} with {providers} providers")
 
         self.onnx_model = onnx_model
         self.model_input_size = model_input_size
         self.mean = mean
         self.std = std
-        self.backend = backend
         self.device = device
 
     @abstractmethod

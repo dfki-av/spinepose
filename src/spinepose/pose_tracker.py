@@ -70,7 +70,6 @@ class PoseTracker:
         self,
         solution: type,
         mode: str = "large",
-        backend: str = "onnxruntime",
         device: str = "auto",
         det_frequency: int = 1,
         max_detections: int = 10,
@@ -85,6 +84,7 @@ class PoseTracker:
         smoothing_dcutoff: float = 1.0,  # Derivative cutoff frequency
         model_version: str = "latest",
         detector: str = "rfdetr",
+        **kwargs,
     ):
         """
         Args:
@@ -95,10 +95,14 @@ class PoseTracker:
             tracking_thr (float): IoU threshold for associating bounding boxes.
             model_version (str): Model version to use. One of: 'latest', 'v2', 'v1'.
         """
+        if "backend" in kwargs:
+            warnings.warn(
+                "The 'backend' argument is deprecated and will be removed in future versions. Please specify the device instead."
+            )
+
         self.solution = solution(
             mode=mode,
             detector=detector,
-            backend=backend,
             device=device,
             model_version=model_version,
         )

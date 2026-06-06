@@ -15,7 +15,6 @@ class YOLOX(BaseTool):
         model_input_size: tuple[int, int] = (640, 640),
         nms_thr: float = 0.45,
         score_thr: float = 0.7,
-        backend: str = "onnxruntime",
         device: str = "cpu",
     ) -> None:
         """Initializes the YOLOX detector.
@@ -25,10 +24,9 @@ class YOLOX(BaseTool):
             model_input_size: Model input size as ``(height, width)``.
             nms_thr: Non-maximum suppression threshold.
             score_thr: Minimum score required to keep a detection.
-            backend: Inference backend name.
             device: Inference device name.
         """
-        super().__init__(onnx_model, model_input_size, backend=backend, device=device)
+        super().__init__(onnx_model, model_input_size, device=device)
         self.nms_thr = nms_thr
         self.score_thr = score_thr
 

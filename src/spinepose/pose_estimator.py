@@ -53,11 +53,16 @@ class SpinePoseEstimator(BasePoseSolution):
     def __init__(
         self,
         mode: str = "large",
-        backend="onnxruntime",
         device: str = "auto",
         model_version: str = "latest",
         detector: str = "rfdetr",
+        **kwargs,
     ):
+        if "backend" in kwargs:
+            warnings.warn(
+                "The 'backend' argument is deprecated and will be removed in future versions. Please specify the device instead."
+            )
+
         model_name = self._resolve_model_name(model_version)
         config = deepcopy(self.MODE)
         for key in config:
@@ -70,7 +75,6 @@ class SpinePoseEstimator(BasePoseSolution):
             config,
             mode=mode,
             detector=detector,
-            backend=backend,
             device=device,
         )
         self.version = model_version

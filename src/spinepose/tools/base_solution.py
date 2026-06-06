@@ -9,12 +9,12 @@ from .utils.multithreading import concurrent_forloop
 from .visualization import draw_skeleton
 
 
-def get_device() -> Tuple[str, str]:
+def get_device() -> str:
     """
     Get the device for running the model.
 
     Returns:
-        A tuple containing the backend and device.
+        str: The device to use.
     """
     try:
         import onnxruntime as ort
@@ -24,29 +24,28 @@ def get_device() -> Tuple[str, str]:
 
         if torch.cuda.is_available():
             if "CUDAExecutionProvider" in available_providers:
-                device, backend = "cuda", "onnxruntime"
-                logging.info("Using ONNXRuntime backend with CUDA.")
+                device = "cuda"
+                logging.info("Using device: CUDA.")
             elif "ROCMExecutionProvider" in available_providers:
-                device, backend = "rocm", "onnxruntime"
-                logging.info("Using ONNXRuntime backend with ROCM.")
+                device = "rocm"
+                logging.info("Using device: ROCM.")
             else:
                 raise RuntimeError("No suitable GPU execution provider found.")
         elif (
-            "MPSExecutionProvider" in available_providers
-            or "CoreMLExecutionProvider" in available_providers
+            "CoreMLExecutionProvider" in available_providers
         ):
-            device, backend = "mps", "onnxruntime"
-            logging.info("Using ONNXRuntime backend with MPS/CoreML.")
+            device = "mps"
+            logging.info("Using device: MPS.")
         else:
             raise RuntimeError("No suitable GPU execution provider found.")
     except Exception as e:
         logging.warning(f"Error while checking GPU availability: {e}")
 
-        # Fallback to CPU with ONNXRuntime
-        device, backend = "cpu", "onnxruntime"
-        logging.info("Falling back to ONNXRuntime backend with CPU.")
+        # Fallback to CPU
+        device = "cpu"
+        logging.info("Falling back to CPU.")
 
-    return backend, device
+    return device
 
 
 class BasePoseSolution:
@@ -67,7 +66,6 @@ class BasePoseSolution:
         metainfo: dict,
         config: dict,
         mode: str = "performance",
-        backend: str = "onnxruntime",
         device: str = "auto",
         detector: str = "yolox",
     ):
@@ -85,11 +83,10 @@ class BasePoseSolution:
                     f"No supported mode found for {self.__class__.__name__}."
                 )
 
-        # Set the device and backend
+        # Set the device
         if device == "auto":
-            backend, device = get_device()
+            device = get_device()
 
-        self.backend = backend
         self.device = device
 
         detector_map = {
@@ -106,13 +103,11 @@ class BasePoseSolution:
         self.det_model = detector_cls(
             mode_config[f"det_{detector.lower()}"],
             model_input_size=mode_config[f"det_{detector.lower()}_input_size"],
-            backend=backend,
             device=device,
         )
         self.pose_model = RTMPose(
             mode_config["pose"],
             model_input_size=mode_config["pose_input_size"],
-            backend=backend,
             device=device,
         )
 
