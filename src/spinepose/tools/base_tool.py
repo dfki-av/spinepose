@@ -78,27 +78,6 @@ class BaseTool(metaclass=ABCMeta):
                 path_or_bytes=onnx_model, providers=[providers]
             )
 
-        elif backend == "openvino":
-            from openvino.runtime import Core
-
-            core = Core()
-            model_onnx = core.read_model(model=onnx_model)
-
-            if device != "cpu":
-                logging.warning(
-                    "OpenVINO only supports CPU backend, automatically"
-                    " switched to CPU backend."
-                )
-
-            self.compiled_model = core.compile_model(
-                model=model_onnx,
-                device_name="CPU",
-                config={"PERFORMANCE_HINT": "LATENCY"},
-            )
-            self.input_layer = self.compiled_model.input(0)
-            self.output_layer0 = self.compiled_model.output(0)
-            self.output_layer1 = self.compiled_model.output(1)
-
         else:
             raise NotImplementedError
 
@@ -142,10 +121,5 @@ class BaseTool(metaclass=ABCMeta):
                 sess_output.append(out.name)
 
             outputs = self.session.run(sess_output, sess_input)
-        elif self.backend == "openvino":
-            results = self.compiled_model(input)
-            output0 = results[self.output_layer0]
-            output1 = results[self.output_layer1]
-            outputs = [output0, output1]
 
         return outputs

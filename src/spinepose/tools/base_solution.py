@@ -42,9 +42,9 @@ def get_device() -> Tuple[str, str]:
     except Exception as e:
         logging.warning(f"Error while checking GPU availability: {e}")
 
-        # Fallback to CPU with OpenVINO
-        device, backend = "cpu", "openvino"
-        logging.info("Falling back to OpenVINO backend with CPU.")
+        # Fallback to CPU with ONNXRuntime
+        device, backend = "cpu", "onnxruntime"
+        logging.info("Falling back to ONNXRuntime backend with CPU.")
 
     return backend, device
 
