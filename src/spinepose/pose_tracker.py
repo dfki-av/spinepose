@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import logging
 import warnings
-from typing import Tuple
 
 import numpy as np
 
+from .camera_transforms import (
+    build_camera_to_world_transform,
+    estimate_camera_pose,
+    project_cam_to_world,
+    project_world_to_img,
+)
 from .tools.smoothing import KeypointSmoothing
 
 
@@ -80,6 +86,15 @@ class PoseTracker:
         smoothing_dcutoff: float = 1.0,  # Derivative cutoff frequency
         model_version: str = "latest",
         detector: str = "rfdetr",
+        # Lifting parameters
+        enable_lifting: bool = False,
+        camera_intrinsics: np.ndarray | None = None,
+        camera_field_of_view: float | None = 84.0,
+        estimate_metric_scale: bool = True,
+        estimate_camera_pose: bool = True,
+        estimate_ground_plane: bool = True,
+        primary_subject_height: float = 1.84,
+        warmup_frames: int = 30,
         **kwargs,
     ) -> None:
         """Initializes the pose tracker.
@@ -98,12 +113,26 @@ class PoseTracker:
             smoothing_dcutoff: Derivative cutoff for smoothing.
             model_version: Model version to use.
             detector: Detector name to use.
+            enable_lifting: Whether to enable 2D-to-3D pose lifting.
+            camera_intrinsics: Camera intrinsic matrix for 3D lifting.
+            camera_field_of_view: Diagonal field of view used to estimate intrinsics.
+            estimate_metric_scale: Whether to estimate metric scale from height.
+            estimate_camera_pose: Whether to estimate camera-to-world orientation.
+            estimate_ground_plane: Whether to align world orientation to the ground.
+            primary_subject_height: Primary subject height in meters.
+            warmup_frames: Number of frames used to stabilize camera calibration.
             **kwargs: Additional arguments forwarded to the solution.
         """
         self.solution = solution(
             mode=mode,
             detector=detector,
             model_version=model_version,
+            enable_lifting=enable_lifting,
+            lifting_thr=tracking_thr,
+            camera_intrinsics=camera_intrinsics,
+            estimate_metric_scale=estimate_metric_scale,
+            camera_field_of_view=camera_field_of_view,
+            primary_subject_height=primary_subject_height,
             **kwargs,
         )
 
@@ -120,6 +149,12 @@ class PoseTracker:
         self.filters = {}
         self.tracking = tracking or smoothing
         self.tracking_thr = tracking_thr
+
+        # Calibration parameters for 3D lifting
+        self.estimate_camera_pose = estimate_camera_pose
+        self.estimate_ground_plane = estimate_ground_plane
+        self.warmup_frames = max(1, int(warmup_frames))
+
         self.reset()
 
     def reset(self) -> None:
@@ -129,7 +164,175 @@ class PoseTracker:
         self.bboxes_last_frame = []
         self.track_ids_last_frame = []
 
-    def visualize(self, image: np.ndarray, keypoints: np.ndarray, scores: np.ndarray):
+        # Reset calibration state for lifting
+        self._camera_to_world = None  # (4,4) camera-to-world transform
+        self._world_to_pixels = None  # (3,4) camera projection matrix
+        self._calibration_anchor_root = None
+        self._calibration_up_axis_accum = np.zeros(3, dtype=np.float32)
+        self._calibration_up_axis_weight_sum = 0.0
+        self._calibration_ground_point_accum = np.zeros(3, dtype=np.float32)
+        self._calibration_ground_weight_sum = 0.0
+        self._calibration_frames = 0
+
+    def _set_camera_transform(self, camera_to_world: np.ndarray) -> None:
+        """Sets camera/world transforms used for 3D output and reprojection.
+
+        Args:
+            camera_to_world: Camera-to-world transform with shape ``(4, 4)``.
+
+        Raises:
+            ValueError: If camera intrinsics are unavailable.
+        """
+        intrinsics = getattr(self.solution, "camera_intrinsics", None)
+        if intrinsics is None:
+            raise ValueError(
+                "Camera intrinsics must be set before setting camera pose."
+            )
+
+        R_cw = camera_to_world[:3, :3]
+        t_cw = camera_to_world[:3, 3]
+
+        R_wc = R_cw.T
+        t_wc = -R_wc @ t_cw
+        world_to_pixels = intrinsics @ np.concatenate(
+            [R_wc, t_wc[:, None]],
+            axis=1,
+        )
+
+        self._camera_to_world = camera_to_world.astype(np.float32)
+        self._world_to_pixels = world_to_pixels.astype(np.float32)
+
+    def _set_identity_camera_transform(self) -> None:
+        """Uses camera coordinates directly as world coordinates."""
+        intrinsics = getattr(self.solution, "camera_intrinsics", None)
+        camera_to_world = np.eye(4, dtype=np.float32)
+        self._camera_to_world = camera_to_world
+        if intrinsics is None:
+            self._world_to_pixels = None
+            return
+
+        self._world_to_pixels = (
+            intrinsics
+            @ np.array(
+                [
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                ],
+                dtype=np.float32,
+            )
+        ).astype(np.float32)
+
+    def _log_camera_state(
+        self, title: str, up_axis: np.ndarray, origin: np.ndarray
+    ) -> None:
+        """Logs the current camera calibration state."""
+        logging.info(title)
+        logging.info(f"  Up Axis: {up_axis}")
+        logging.info(f"  World Origin: {origin}")
+        logging.info(f"  Camera-to-World Transform:\n{self._camera_to_world}")
+        logging.info(f"  World-to-Pixel Projection:\n{self._world_to_pixels}")
+
+    def _update_camera_pose(self, points_cam: np.ndarray, scores: np.ndarray) -> None:
+        """Updates camera pose from one lifted subject.
+
+        Args:
+            points_cam: Camera-space 3D keypoints with shape ``(K, 3)``.
+            scores: Keypoint confidence scores with shape ``(K,)``.
+        """
+        if not self.estimate_camera_pose:
+            if self._camera_to_world is None:
+                self._set_identity_camera_transform()
+            return
+
+        if not self.estimate_ground_plane:
+            if self._camera_to_world is None:
+                initial_camera_pose = estimate_camera_pose(
+                    points_cam,
+                    scores,
+                    estimate_ground_plane=False,
+                )
+                initial_transform = initial_camera_pose.transform
+                self._set_camera_transform(initial_transform)
+                self._log_camera_state(
+                    "Camera pose initialized without ground-plane alignment:",
+                    initial_camera_pose.up_axis,
+                    initial_camera_pose.world_origin,
+                )
+            return
+
+        if (
+            self._camera_to_world is not None
+            and self._calibration_frames >= self.warmup_frames
+        ):
+            if self._calibration_frames == self.warmup_frames:
+                up_axis = self._calibration_up_axis_accum / max(
+                    self._calibration_up_axis_weight_sum,
+                    1e-6,
+                )
+                origin = self._calibration_ground_point_accum / max(
+                    self._calibration_ground_weight_sum,
+                    1e-6,
+                )
+                self._log_camera_state("Camera pose warmup complete:", up_axis, origin)
+                self._calibration_frames += 1
+            return
+
+        camera_pose = estimate_camera_pose(
+            points_cam,
+            scores,
+            estimate_ground_plane=True,
+        )
+        if self._calibration_anchor_root is None:
+            self._calibration_anchor_root = np.asarray(
+                points_cam[19],
+                dtype=np.float32,
+            ).copy()
+
+        up_axis = camera_pose.up_axis
+        if (
+            self._calibration_up_axis_weight_sum > 0.0
+            and float(np.dot(self._calibration_up_axis_accum, up_axis)) < 0.0
+        ):
+            up_axis = -up_axis
+
+        orientation_weight = max(0.25, float(camera_pose.confidence))
+        ground_weight = max(0.05, float(camera_pose.confidence))
+        self._calibration_up_axis_accum += orientation_weight * up_axis
+        self._calibration_up_axis_weight_sum += orientation_weight
+        self._calibration_ground_point_accum += ground_weight * camera_pose.ground_point
+        self._calibration_ground_weight_sum += ground_weight
+        self._calibration_frames += 1
+
+        averaged_up_axis = self._calibration_up_axis_accum / max(
+            self._calibration_up_axis_weight_sum,
+            1e-6,
+        )
+        averaged_up_axis_norm = float(np.linalg.norm(averaged_up_axis))
+        if averaged_up_axis_norm < 1e-6:
+            averaged_up_axis = camera_pose.up_axis
+        else:
+            averaged_up_axis = averaged_up_axis / averaged_up_axis_norm
+
+        averaged_ground_point = self._calibration_ground_point_accum / max(
+            self._calibration_ground_weight_sum,
+            1e-6,
+        )
+        anchor_root = self._calibration_anchor_root
+        plane_offset = float(np.dot(averaged_ground_point, averaged_up_axis))
+        anchor_height = float(np.dot(anchor_root, averaged_up_axis) - plane_offset)
+        world_origin = anchor_root - anchor_height * averaged_up_axis
+
+        updated_transform = build_camera_to_world_transform(
+            averaged_up_axis,
+            world_origin,
+            estimate_ground_plane=True,
+        )
+        self._set_camera_transform(updated_transform)
+
+    def visualize(
+        self, image: np.ndarray, keypoints: np.ndarray, scores: np.ndarray
+    ) -> np.ndarray:
         """Draws the tracked pose predictions on an image.
 
         Args:
@@ -142,14 +345,17 @@ class PoseTracker:
         """
         return self.solution.visualize(image, keypoints, scores)
 
-    def __call__(self, image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(
+        self, image: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Processes a single frame and updates tracking state.
 
         Args:
             image: Input image.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Keypoints and confidence scores.
+            tuple: 2D keypoints and scores, plus world-space 3D keypoints when
+            lifting is enabled and succeeds.
         """
         # Determine boxes using detection or reuse boxes from the last frame.
         if self.solution.det_model:
@@ -162,7 +368,33 @@ class PoseTracker:
             bboxes = None  # For solutions that don't use detection
 
         # Run pose estimation (detection + pose + postprocessing)
-        keypoints, scores = self.solution.estimate(image, bboxes)
+        results = self.solution.estimate(image, bboxes)
+        if len(results) == 3:
+            keypoints, scores, keypoints_3d_cam = results
+            if keypoints_3d_cam is None:
+                keypoints_3d = None
+            else:
+                if len(keypoints_3d_cam) > 0:
+                    self._update_camera_pose(keypoints_3d_cam[0], scores[0])
+                elif self._camera_to_world is None:
+                    self._set_identity_camera_transform()
+
+                keypoints_3d = project_cam_to_world(
+                    keypoints_3d_cam,
+                    self._camera_to_world,
+                )
+                if self._world_to_pixels is not None and len(keypoints_3d) > 0:
+                    reprojection = project_world_to_img(
+                        keypoints_3d,
+                        self._world_to_pixels,
+                    )
+                    error = np.linalg.norm(reprojection - keypoints, axis=-1)
+                    error = error[scores >= self.tracking_thr]
+                    error = error.mean() if len(error) > 0 else 0.0
+                    logging.debug(f"Mean reprojection error: {error:.2f} px")
+        else:
+            keypoints, scores = results
+            keypoints_3d = None
 
         if not self.tracking:
             # Without tracking, simply compute bounding boxes from keypoints
@@ -212,6 +444,9 @@ class PoseTracker:
         # Save state for the next frame and increment frame counter
         self.bboxes_last_frame = bboxes_current_frame
         self.frame_cnt += 1
+
+        if keypoints_3d is not None:
+            return keypoints, scores, keypoints_3d
 
         return keypoints, scores
 

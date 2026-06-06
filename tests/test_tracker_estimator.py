@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from spinepose.pose_estimator import SpinePoseEstimator
 from spinepose.pose_tracker import PoseTracker, compute_iou, pose_to_bbox
+from spinepose.camera_transforms import project_cam_to_world, project_world_to_img
 
 
 class TrackerUtilityTests(unittest.TestCase):
@@ -22,6 +23,35 @@ class TrackerUtilityTests(unittest.TestCase):
         bbox = pose_to_bbox(keypoints, expansion=1.0)
 
         np.testing.assert_array_equal(bbox, np.array([0.0, 0.0, 10.0, 20.0]))
+
+
+class CameraTransformTests(unittest.TestCase):
+    def test_projection_helpers_support_batched_keypoints(self):
+        camera_to_world = np.eye(4, dtype=np.float32)
+        camera_to_world[:3, 3] = np.array([1.0, 0.0, -1.0], dtype=np.float32)
+        points_cam = np.array([[[1.0, 2.0, 3.0]]], dtype=np.float32)
+
+        points_world = project_cam_to_world(points_cam, camera_to_world)
+
+        np.testing.assert_array_equal(
+            points_world,
+            np.array([[[2.0, 2.0, 2.0]]], dtype=np.float32),
+        )
+
+        world_to_pixels = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ],
+            dtype=np.float32,
+        )
+        points_img = project_world_to_img(points_world, world_to_pixels)
+
+        np.testing.assert_array_equal(
+            points_img,
+            np.array([[[1.0, 1.0]]], dtype=np.float32),
+        )
 
 
 class _FakeSolution:
@@ -43,6 +73,25 @@ class _FakeSolution:
 
     def visualize(self, image, keypoints, scores):
         return image + 1
+
+
+class _ManyDetectionSolution(_FakeSolution):
+    def detect(self, image):
+        return np.array(
+            [
+                [0.0, 0.0, 20.0, 20.0],
+                [10.0, 10.0, 30.0, 30.0],
+                [20.0, 20.0, 40.0, 40.0],
+            ],
+            dtype=np.float32,
+        )
+
+    def estimate(self, image, bboxes):
+        self.received_bboxes = bboxes
+        return (
+            np.array([[[0.0, 0.0], [20.0, 20.0]]], dtype=np.float32),
+            np.array([[0.9, 0.8]], dtype=np.float32),
+        )
 
 
 class PoseTrackerTests(unittest.TestCase):
@@ -68,6 +117,17 @@ class PoseTrackerTests(unittest.TestCase):
         self.assertEqual(tracker.frame_cnt, 1)
         self.assertEqual(keypoints.shape, (1, 2, 2))
         self.assertEqual(scores.shape, (1, 2))
+
+    def test_tracker_limits_detected_boxes_to_max_detections(self):
+        tracker = PoseTracker(
+            _ManyDetectionSolution,
+            tracking=False,
+            max_detections=2,
+        )
+
+        tracker(np.zeros((4, 4, 3), dtype=np.uint8))
+
+        self.assertEqual(len(tracker.solution.received_bboxes), 2)
 
     def test_track_by_iou_reuses_existing_track_id(self):
         tracker = PoseTracker(_FakeSolution)

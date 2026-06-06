@@ -112,6 +112,13 @@ class SpinePoseEstimator(BasePoseSolution):
                 **kwargs,
             )
 
+    @property
+    def camera_intrinsics(self) -> np.ndarray | None:
+        """Camera intrinsic matrix used for 3D lifting."""
+        if self._lifting_model is not None:
+            return self._lifting_model.camera_intrinsics
+        return None
+
     def _resolve_model_name(self, model_version: str) -> str:
         """Maps a public model version to the underlying model family.
 

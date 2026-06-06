@@ -16,6 +16,10 @@ part of any released PyPI version yet.
   optionally return confidence scores alongside bounding boxes.
 - Added an experimental 2D-to-3D pose lifter that can return camera-space
   keypoints from `SpinePoseEstimator` when lifting is enabled.
+- Added world-space 3D keypoint output through `PoseTracker`, including camera
+  pose estimation and optional ground-plane alignment.
+- Exposed the `PoseTracker` maximum detection limit through `infer_video` and
+  the CLI.
 - Added ONNX Runtime session utilities for provider selection, provider tuning,
   caching, and hardware-aware session creation.
 - Added deprecation utilities for managing public API argument transitions.
@@ -28,6 +32,8 @@ part of any released PyPI version yet.
   convenience inference helpers.
 - CoreML session preparation now uses cached ONNX copies instead of mutating the
   source model file in place.
+- `BaseTool.inference()` now accepts batched coordinate tensors for pose-lifting
+  models in addition to image tensors.
 
 ### Deprecated
 - Deprecated the public `backend` argument.
@@ -37,6 +43,7 @@ part of any released PyPI version yet.
 - Added consistent Google-style docstrings across the package.
 - Updated README content for the current inference surface and hardware control
   options.
+- Documented the 2D-to-3D lifting workflow and OpenPose-style 3D export format.
 
 ## [2.0.2] - 2026-03-23
 
