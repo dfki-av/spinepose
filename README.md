@@ -37,7 +37,7 @@ pip install spinepose[gpu]
 ### Using the CLI
 
 ```
-usage: spinepose [-h] (--version | --input_path INPUT_PATH) [--vis-path VIS_PATH] [--save-path SAVE_PATH] [--mode {xlarge,large,medium,small}] [--nosmooth] [--spine-only]
+usage: spinepose [-h] (--version | --input_path INPUT_PATH) [--vis-path VIS_PATH] [--save-path SAVE_PATH] [--mode {xlarge,large,medium,small}] [--detector {rfdetr,yolox}] [--hardware-acceleration | --no-hardware-acceleration] [--mixed-precision | --no-mixed-precision] [--nosmooth] [--spine-only]
 
 SpinePose Inference
 
@@ -51,11 +51,17 @@ options:
   --save-path SAVE_PATH, -s SAVE_PATH
                         Save predictions in OpenPose format (.json for image or folder for video).
   --mode {xlarge,large,medium,small}, -m {xlarge,large,medium,small}
-                        Model size. Choose from: xlarge, large, medium, small (default: medium)
+                         Model size. Choose from: xlarge, large, medium, small (default: medium)
+  --detector {rfdetr,yolox}
+                         Detector backend. One of: 'rfdetr', 'yolox' (default: rfdetr)
+  --hardware-acceleration, --no-hardware-acceleration
+                         Enable non-CPU execution providers when available (default: enabled)
+  --mixed-precision, --no-mixed-precision
+                         Enable lower-precision execution when supported (default: disabled)
   --nosmooth            Disable keypoint smoothing for video inference (default: enabled)
   --spine-only          Only use 9 spine keypoints (default: use all 37 keypoints)
   --model-version MODEL_VERSION
-                        Model version to use. One of: 'latest', 'v2', 'v1' (default: latest)
+                         Model version to use. One of: 'latest', 'v2', 'v1' (default: latest)
 ```
 
 For example, to run inference on a video and save only spine keypoints in OpenPose format:
@@ -64,7 +70,7 @@ For example, to run inference on a video and save only spine keypoints in OpenPo
 spinepose --input_path path/to/video.mp4 --save-path output_path.json --spine-only
 ```
 
-This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use spinepose -h to view all available options, including GPU usage and confidence thresholds.
+This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use `spinepose -h` to view all available options, including detector selection and hardware acceleration controls.
 
 ### Using the Python API
 
@@ -81,6 +87,9 @@ keypoints, scores = estimator(image)
 visualized = estimator.visualize(image, keypoints, scores)
 cv2.imwrite('output.jpg', visualized)
 ```
+
+Use `hardware_acceleration=False` to force CPU execution, or `mixed_precision=True`
+to enable lower-precision inference when supported by the selected execution provider.
 
 Or, for a simplified interface:
 

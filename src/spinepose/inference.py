@@ -21,6 +21,8 @@ def infer_image(
     vis_path=None,
     model_version="latest",
     detector="rfdetr",
+    hardware_acceleration: bool = True,
+    mixed_precision: bool = False,
 ) -> np.ndarray:
     """Perform pose estimation on a single image.
 
@@ -31,12 +33,20 @@ def infer_image(
         spine_only: Whether to include only spine keypoints.
         vis_path: Optional path to save the output visualization.
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
+        hardware_acceleration: Whether to use non-CPU execution providers when available.
+        mixed_precision: Whether to enable lower-precision execution when supported.
 
     Returns:
         A NumPy array of shape (1, N, 4) containing keypoints and scores,
         or an empty array if no keypoints are detected.
     """
-    model = SpinePoseEstimator(mode, detector=detector, model_version=model_version)
+    model = SpinePoseEstimator(
+        mode,
+        detector=detector,
+        model_version=model_version,
+        hardware_acceleration=hardware_acceleration,
+        mixed_precision=mixed_precision,
+    )
 
     img = cv2.imread(input_path, cv2.IMREAD_COLOR)
     keypoints, scores = model(img)
@@ -75,6 +85,8 @@ def infer_video(
     vis_path=None,
     model_version="latest",
     detector="rfdetr",
+    hardware_acceleration: bool = True,
+    mixed_precision: bool = False,
 ) -> List[np.ndarray]:
     """Perform pose estimation on a video file.
 
@@ -86,6 +98,8 @@ def infer_video(
         use_smoothing: Whether to apply smoothing to keypoints over time.
         vis_path: Optional path to save the output video.
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
+        hardware_acceleration: Whether to use non-CPU execution providers when available.
+        mixed_precision: Whether to enable lower-precision execution when supported.
 
     Returns:
         A list of NumPy arrays with keypoints and scores for each frame.
@@ -110,6 +124,8 @@ def infer_video(
         smoothing=use_smoothing,
         smoothing_freq=fps,
         model_version=model_version,
+        hardware_acceleration=hardware_acceleration,
+        mixed_precision=mixed_precision,
     )
 
     writer = None
@@ -267,6 +283,18 @@ def main():
         help="Detector backend. One of: 'rfdetr', 'yolox' (default: rfdetr)",
     )
     parser.add_argument(
+        "--hardware-acceleration",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable non-CPU execution providers when available (default: enabled)",
+    )
+    parser.add_argument(
+        "--mixed-precision",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Enable lower-precision execution when supported (default: disabled)",
+    )
+    parser.add_argument(
         "--nosmooth",
         action="store_false",
         help="Disable keypoint smoothing for video inference (default: enabled)",
@@ -298,6 +326,8 @@ def main():
             spine_only=args.spine_only,
             vis_path=args.vis_path,
             model_version=str(args.model_version),
+            hardware_acceleration=args.hardware_acceleration,
+            mixed_precision=args.mixed_precision,
         )
     elif _is_video(args.input_path) or args.input_path.lower() == "webcam":
         image_mode = False
@@ -308,7 +338,9 @@ def main():
             spine_only=args.spine_only,
             use_smoothing=args.nosmooth,
             vis_path=args.vis_path,
-            model_version=str(args.model_version)
+            model_version=str(args.model_version),
+            hardware_acceleration=args.hardware_acceleration,
+            mixed_precision=args.mixed_precision,
         )
     else:
         raise ValueError(
