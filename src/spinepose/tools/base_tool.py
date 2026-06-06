@@ -1,9 +1,9 @@
 """Utilities for the ``posetrack.models.base`` module."""
+
 from __future__ import annotations
 
 import logging
 import os
-import warnings
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional, Tuple
 
@@ -15,7 +15,7 @@ from .utils.session import create_ort_session
 
 
 class BaseTool(metaclass=ABCMeta):
-    """Implement the base tool component."""
+    """Base class for ONNX-backed tool components."""
 
     @deprecated_arg("backend")
     @deprecated_arg("device", "hardware_acceleration", default=True)
@@ -28,15 +28,15 @@ class BaseTool(metaclass=ABCMeta):
         hardware_acceleration: bool = True,
         mixed_precision: bool = False,
     ):
-        """Initialize the base tool instance.
+        """Initializes the base tool.
 
         Args:
-            onnx_model: Onnx model value.
-            model_input_size: Model input size value.
-            mean: Mean value.
-            std: Std value.
-            hardware_acceleration: Hardware acceleration value.
-            mixed_precision: Mixed precision value.
+            onnx_model: Path or URL to the ONNX model.
+            model_input_size: Model input size as ``(height, width)``.
+            mean: Optional channel-wise normalization mean.
+            std: Optional channel-wise normalization standard deviation.
+            hardware_acceleration: Whether to use non-CPU execution providers.
+            mixed_precision: Whether to enable lower-precision execution.
         """
         if not os.path.exists(onnx_model):
             onnx_model = download_checkpoint(onnx_model)
@@ -62,33 +62,41 @@ class BaseTool(metaclass=ABCMeta):
 
     @abstractmethod
     def __call__(self, *args, **kwargs) -> Any:
-        """Implement the actual function here."""
+        """Runs the tool-specific forward pass.
+
+        Args:
+            *args: Positional arguments for the tool.
+            **kwargs: Keyword arguments for the tool.
+
+        Returns:
+            Any: Tool-specific outputs.
+        """
         raise NotImplementedError
 
     @staticmethod
     def _shape_dim_to_int(value):
-        """Execute shape dim to int.
+        """Converts a static shape dimension to an integer.
 
         Args:
-            value: Value value.
+            value: Shape dimension value.
 
         Returns:
-            Any: Computed return value.
+            Any: Positive integer dimension or ``None``.
         """
         if isinstance(value, int) and value > 0:
             return value
         return None
 
     def _infer_input_layout(self, input_shape) -> str:
-        # Default to NCHW to preserve existing behavior for legacy models.
-        """Infer input layout.
+        """Infers the model input layout.
 
         Args:
-            input_shape: Input shape value.
+            input_shape: Input tensor shape metadata.
 
         Returns:
-            str: Computed return value.
+            str: Either ``"nchw"`` or ``"nhwc"``.
         """
+        # Default to NCHW to preserve existing behavior for legacy models.
         if not isinstance(input_shape, (list, tuple)) or len(input_shape) != 4:
             return "nchw"
 
@@ -110,13 +118,13 @@ class BaseTool(metaclass=ABCMeta):
 
     @staticmethod
     def _merge_batched_outputs(chunk_outputs):
-        """Merge batched outputs.
+        """Merges per-item outputs into batched outputs.
 
         Args:
-            chunk_outputs: Chunk outputs value.
+            chunk_outputs: Sequence of outputs from single-item runs.
 
         Returns:
-            Any: Computed return value.
+            Any: Batched output tuple.
         """
         if len(chunk_outputs) == 0:
             return tuple()
@@ -128,13 +136,13 @@ class BaseTool(metaclass=ABCMeta):
         return tuple(merged)
 
     def _run_session(self, x: np.ndarray):
-        """Run session.
+        """Runs the ONNX session.
 
         Args:
-            x: X value.
+            x: Batched model input.
 
         Returns:
-            Any: Computed return value.
+            Any: Session outputs.
         """
         input_meta = self.session.get_inputs()[0]
         input_name = input_meta.name
@@ -156,7 +164,17 @@ class BaseTool(metaclass=ABCMeta):
         return tuple(self.session.run(output_names, {input_name: x}))
 
     def inference(self, img: np.ndarray):
-        """Run inference on image batches with automatic layout + static-batch handling."""
+        """Runs inference on an image batch.
+
+        Args:
+            img: Input image or image batch in HWC or BHWC format.
+
+        Returns:
+            Any: Session outputs.
+
+        Raises:
+            ValueError: If the input shape is not a supported image layout.
+        """
         if img.ndim not in [3, 4] or img.shape[-1] not in (1, 3, 4):
             raise ValueError(
                 f"Expected HxWxC image with 1/3/4 channels, got {img.shape}"

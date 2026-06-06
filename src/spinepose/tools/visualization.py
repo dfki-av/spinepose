@@ -2,6 +2,16 @@ import cv2
 
 
 def draw_bbox(img, bboxes, color=(0, 255, 0)):
+    """Draws bounding boxes on an image.
+
+    Args:
+        img: Input image.
+        bboxes: Bounding boxes in ``xyxy`` format.
+        color: Box color in BGR format.
+
+    Returns:
+        The annotated image.
+    """
     for bbox in bboxes:
         img = cv2.rectangle(
             img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2
@@ -12,6 +22,20 @@ def draw_bbox(img, bboxes, color=(0, 255, 0)):
 def draw_skeleton(
     img, keypoints, scores, metainfo, kpt_thr=0.5, radius=2, line_width=2
 ):
+    """Draws pose skeletons on an image.
+
+    Args:
+        img: Input image.
+        keypoints: Keypoint coordinates for one or more poses.
+        scores: Keypoint confidence scores.
+        metainfo: Skeleton metadata.
+        kpt_thr: Minimum score required to draw a keypoint.
+        radius: Keypoint circle radius.
+        line_width: Skeleton line width.
+
+    Returns:
+        The annotated image.
+    """
     keypoint_info = metainfo["keypoint_info"]
     skeleton_info = metainfo["skeleton_info"]
 
@@ -44,6 +68,21 @@ def draw_mmpose(
     radius=2,
     line_width=2,
 ):
+    """Draws a single pose using MMPose-style metadata.
+
+    Args:
+        img: Input image.
+        keypoints: Keypoint coordinates for one pose.
+        scores: Keypoint confidence scores for one pose.
+        keypoint_info: Keypoint metadata mapping.
+        skeleton_info: Skeleton edge metadata mapping.
+        kpt_thr: Minimum score required to draw a keypoint.
+        radius: Keypoint circle radius.
+        line_width: Skeleton line width.
+
+    Returns:
+        The annotated image.
+    """
     assert len(keypoints.shape) == 2
 
     vis_kpt = [s >= kpt_thr for s in scores]

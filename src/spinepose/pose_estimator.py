@@ -6,12 +6,7 @@ from .metainfo import metainfo
 
 
 class SpinePoseEstimator(BasePoseSolution):
-    """
-    SpinePose: Body + Spine pose estimation using SpineTrack keypoints.
-
-    Combines HALPE-26 keypoints with additional spine keypoints obtained
-    from an auxiliary spine pose model.
-    """
+    """Spine-aware pose estimator built on top of the base solution."""
 
     MODE = {
         "xlarge": {
@@ -57,6 +52,14 @@ class SpinePoseEstimator(BasePoseSolution):
         detector: str = "rfdetr",
         **kwargs,
     ):
+        """Initializes the SpinePose estimator.
+
+        Args:
+            mode: Model preset to load.
+            model_version: Model version to use.
+            detector: Detector name to use.
+            **kwargs: Additional arguments forwarded to the base solution.
+        """
         model_name = self._resolve_model_name(model_version)
         config = deepcopy(self.MODE)
         for key in config:
@@ -74,22 +77,49 @@ class SpinePoseEstimator(BasePoseSolution):
         self.version = model_version
 
     def _resolve_model_name(self, model_version: str) -> str:
+        """Maps a public model version to the underlying model family.
+
+        Args:
+            model_version: User-facing model version string.
+
+        Returns:
+            str: Internal model family name.
+        """
         if model_version in ["latest", "v2"]:
             return "simspine"
         elif model_version == "v1":
             return "spinetrack"
         else:
-            warnings.warn(f"Unknown model version '{model_version}', defaulting to 'simspine'")
+            warnings.warn(
+                f"Unknown model version '{model_version}', defaulting to 'simspine'"
+            )
             return "simspine"
 
     def postprocess(self, keypoints, scores):
+        """Postprocesses predicted keypoints and scores.
+
+        Args:
+            keypoints: Predicted keypoints.
+            scores: Predicted confidence scores.
+
+        Returns:
+            tuple: Postprocessed keypoints and scores.
+        """
         if self.version == "v1":
             keypoints, scores = self._smooth_spine(keypoints, scores)
 
         return keypoints, scores
 
     def _smooth_spine(self, keypoints, scores):
-        """Smooth spine keypoints based on domain-specific rule."""
+        """Applies a simple smoothing rule to spine keypoints.
+
+        Args:
+            keypoints: Predicted keypoints.
+            scores: Predicted confidence scores.
+
+        Returns:
+            tuple: Smoothed keypoints and original scores.
+        """
         spine_ids = self.SPINE_IDS[:9]
         spine_keypoints = keypoints[:, spine_ids]
         spine_scores = scores[:, spine_ids]

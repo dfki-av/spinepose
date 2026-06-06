@@ -8,6 +8,8 @@ from .pre_processings import bbox_xyxy2cs, top_down_affine
 
 
 class RTMPose(BaseTool):
+    """RTMPose keypoint estimator."""
+
     def __init__(
         self,
         onnx_model: str,
@@ -16,9 +18,27 @@ class RTMPose(BaseTool):
         std: tuple = (58.395, 57.12, 57.375),
         **kwargs,
     ):
+        """Initializes the pose estimator.
+
+        Args:
+            onnx_model: Path to the ONNX model.
+            model_input_size: Model input size as ``(width, height)``.
+            mean: Channel-wise normalization mean.
+            std: Channel-wise normalization standard deviation.
+            **kwargs: Additional arguments forwarded to ``BaseTool``.
+        """
         super().__init__(onnx_model, model_input_size, mean, std, **kwargs)
 
     def __call__(self, image: np.ndarray, bboxes: list = []):
+        """Runs pose estimation for one or more bounding boxes.
+
+        Args:
+            image: Input image.
+            bboxes: Bounding boxes in ``xyxy`` format.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Keypoints and confidence scores.
+        """
         if len(bboxes) == 0:
             bboxes = [[0, 0, image.shape[1], image.shape[0]]]
 
@@ -37,17 +57,14 @@ class RTMPose(BaseTool):
         return keypoints, scores
 
     def preprocess(self, img: np.ndarray, bbox: list):
-        """Do preprocessing for RTMPose model inference.
+        """Preprocesses an image crop for RTMPose.
 
         Args:
-            img (np.ndarray): Input image in shape.
-            bbox (list):  xyxy-format bounding box of target.
+            img: Input image.
+            bbox: Target bounding box in ``xyxy`` format.
 
         Returns:
-            tuple:
-            - resized_img (np.ndarray): Preprocessed image.
-            - center (np.ndarray): Center of image.
-            - scale (np.ndarray): Scale of image.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Image crop, center, and scale.
         """
         bbox = np.array(bbox)
 
@@ -71,19 +88,16 @@ class RTMPose(BaseTool):
         scale: Tuple[int, int],
         simcc_split_ratio: float = 2.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Postprocess for RTMPose model output.
+        """Postprocesses RTMPose outputs.
 
         Args:
-            outputs (np.ndarray): Output of RTMPose model.
-            model_input_size (tuple): RTMPose model Input image size.
-            center (tuple): Center of bbox in shape (x, y).
-            scale (tuple): Scale of bbox in shape (w, h).
-            simcc_split_ratio (float): Split ratio of simcc.
+            outputs: Raw model outputs.
+            center: Bounding-box center.
+            scale: Bounding-box scale.
+            simcc_split_ratio: SimCC coordinate split ratio.
 
         Returns:
-            tuple:
-            - keypoints (np.ndarray): Rescaled keypoints.
-            - scores (np.ndarray): Model predict scores.
+            Tuple[np.ndarray, np.ndarray]: Rescaled keypoints and scores.
         """
         # decode simcc
         simcc_x, simcc_y = outputs

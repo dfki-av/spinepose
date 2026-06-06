@@ -20,6 +20,11 @@ _DIRECTML_ALIASES = {"DmlExecutionProvider", "DirectMLExecutionProvider"}
 
 
 def _user_cache_root() -> str:
+    """Returns the root cache directory for execution-provider assets.
+
+    Returns:
+        str: Root cache directory path.
+    """
     sys = platform.system()
     home = os.path.expanduser("~")
     if sys == "Darwin":
@@ -34,12 +39,28 @@ def _user_cache_root() -> str:
 
 
 def _ep_cache_dir(ep_name: str) -> str:
+    """Returns the cache directory for a specific execution provider.
+
+    Args:
+        ep_name: Execution provider name.
+
+    Returns:
+        str: Provider-specific cache directory.
+    """
     path = os.path.join(_user_cache_root(), ep_name)
     os.makedirs(path, exist_ok=True)
     return path
 
 
 def _sha256_file(path: str) -> str:
+    """Computes the SHA256 digest of a file.
+
+    Args:
+        path: File path.
+
+    Returns:
+        str: Hex-encoded SHA256 digest.
+    """
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -48,13 +69,26 @@ def _sha256_file(path: str) -> str:
 
 
 def _coreml_model_cache_dir() -> str:
+    """Returns the cache directory for CoreML-prepared ONNX models.
+
+    Returns:
+        str: CoreML model cache directory path.
+    """
     path = os.path.join(_ep_cache_dir("CoreML"), "models")
     os.makedirs(path, exist_ok=True)
     return path
 
 
 def _prepare_coreml_model_copy(onnx_path: str, key_name: str = "CACHE_KEY") -> str:
-    """Return a CoreML-prepared cached copy of the ONNX model."""
+    """Returns a cached ONNX copy prepared for CoreML compilation.
+
+    Args:
+        onnx_path: Source ONNX model path.
+        key_name: Metadata key used for the CoreML cache key.
+
+    Returns:
+        str: Path to the cached ONNX copy.
+    """
     model_name = Path(onnx_path).stem
 
     try:
@@ -98,16 +132,38 @@ def _prepare_coreml_model_copy(onnx_path: str, key_name: str = "CACHE_KEY") -> s
 
 
 def _available_providers() -> List[str]:
+    """Returns the execution providers available in this ORT build.
+
+    Returns:
+        List[str]: Available execution provider names.
+    """
     return list(ort.get_available_providers())
 
 
 def _has(ep: str, available: Iterable[str]) -> bool:
+    """Checks whether a provider is available.
+
+    Args:
+        ep: Execution provider name to check.
+        available: Available provider names.
+
+    Returns:
+        bool: ``True`` if the provider is available.
+    """
     if ep in _DIRECTML_ALIASES:
         return any(a in _DIRECTML_ALIASES for a in available)
     return ep in set(available)
 
 
 def _canonical_directml_name(available: Iterable[str]) -> Optional[str]:
+    """Returns the canonical DirectML provider name if available.
+
+    Args:
+        available: Available provider names.
+
+    Returns:
+        Optional[str]: Matching DirectML provider name, if any.
+    """
     for n in _DIRECTML_ALIASES:
         if n in available:
             return n
@@ -118,9 +174,14 @@ def resolve_execution_providers(
     hardware_acceleration: bool = True,
     tensor_rt: bool = False,
 ) -> List[str]:
-    """
-    Decide an ordered list of EPs to request, from most preferred to least.
-    Always ends with CPUExecutionProvider as a safety net.
+    """Resolves execution providers in preferred order.
+
+    Args:
+        hardware_acceleration: Whether to prefer non-CPU providers.
+        tensor_rt: Whether to include TensorRT providers when available.
+
+    Returns:
+        List[str]: Ordered provider names ending with CPU.
     """
     if not hardware_acceleration:
         return ["CPUExecutionProvider"]
@@ -182,10 +243,15 @@ def provider_options_for(
     onnx_model: str,
     mixed_precision: bool,
 ) -> Optional[ProviderEntry]:
-    """
-    Return a (name, options) tuple for EPs that benefit from tuned options.
-    Return just the string name (or None) to skip options.
-    Options are conservative & known-good; if an EP rejects them, we retry without.
+    """Builds provider options for an execution provider.
+
+    Args:
+        ep: Execution provider name.
+        onnx_model: ONNX model path used by the provider.
+        mixed_precision: Whether to enable lower-precision execution.
+
+    Returns:
+        Optional[ProviderEntry]: Provider name or provider/options tuple.
     """
     if ep == "CoreMLExecutionProvider":
         return (
@@ -289,6 +355,16 @@ def build_provider_entries(
     onnx_model: str,
     mixed_precision: bool,
 ) -> List[ProviderEntry]:
+    """Builds provider entries for ORT session creation.
+
+    Args:
+        providers: Ordered provider names.
+        onnx_model: ONNX model path used by provider configuration.
+        mixed_precision: Whether to enable lower-precision execution.
+
+    Returns:
+        List[ProviderEntry]: Provider entries for ORT.
+    """
     entries: List[ProviderEntry] = []
     for p in providers:
         entry = provider_options_for(
@@ -306,6 +382,18 @@ def create_ort_session(
     mixed_precision: bool = True,
     overrides: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> ort.InferenceSession:
+    """Creates an ONNX Runtime inference session.
+
+    Args:
+        model_path: ONNX model path.
+        hardware_acceleration: Whether to prefer non-CPU providers.
+        tensor_rt: Whether to include TensorRT providers when available.
+        mixed_precision: Whether to enable lower-precision execution.
+        overrides: Optional provider option overrides keyed by provider name.
+
+    Returns:
+        ort.InferenceSession: Configured inference session.
+    """
     providers = resolve_execution_providers(
         hardware_acceleration=hardware_acceleration,
         tensor_rt=tensor_rt,

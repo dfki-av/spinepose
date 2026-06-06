@@ -9,6 +9,8 @@ from .post_processings import multiclass_nms
 
 
 class YOLOX(BaseTool):
+    """YOLOX object detector."""
+
     def __init__(
         self,
         onnx_model: str,
@@ -17,7 +19,7 @@ class YOLOX(BaseTool):
         score_thr: float = 0.7,
         **kwargs,
     ) -> None:
-        """Initializes the YOLOX detector.
+        """Initializes the detector.
 
         Args:
             onnx_model: Path to the ONNX model.
@@ -30,11 +32,25 @@ class YOLOX(BaseTool):
         self.score_thr = score_thr
 
     def __call__(self, image: np.ndarray) -> np.ndarray:
-        """Runs detection and returns boxes only."""
+        """Runs detection and returns boxes only.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            np.ndarray: Detected bounding boxes.
+        """
         return self.predict(image)["xyxy"]
 
     def predict(self, image: np.ndarray) -> dict[str, np.ndarray]:
-        """Runs detection and returns boxes with confidence scores."""
+        """Runs detection and returns boxes with confidence scores.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            dict[str, np.ndarray]: Detection payload with boxes and confidences.
+        """
         image, ratio = self.preprocess(image)
         outputs = self.inference(image)[0]
         return self.postprocess(outputs, ratio, return_scores=True)

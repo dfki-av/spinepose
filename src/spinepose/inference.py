@@ -1,5 +1,5 @@
 import argparse
-import json   
+import json
 import os
 import warnings
 from pathlib import Path
@@ -24,7 +24,7 @@ def infer_image(
     hardware_acceleration: bool = True,
     mixed_precision: bool = False,
 ) -> np.ndarray:
-    """Perform pose estimation on a single image.
+    """Runs pose estimation on a single image.
 
     Args:
         input_path: Path to the input image file.
@@ -37,8 +37,7 @@ def infer_image(
         mixed_precision: Whether to enable lower-precision execution when supported.
 
     Returns:
-        A NumPy array of shape (1, N, 4) containing keypoints and scores,
-        or an empty array if no keypoints are detected.
+        np.ndarray: Keypoints and scores in ``(N, K, 4)`` format, or an empty array.
     """
     model = SpinePoseEstimator(
         mode,
@@ -88,7 +87,7 @@ def infer_video(
     hardware_acceleration: bool = True,
     mixed_precision: bool = False,
 ) -> List[np.ndarray]:
-    """Perform pose estimation on a video file.
+    """Runs pose estimation on a video file.
 
     Args:
         input_path: Path to the input video file or 'webcam' for live video.
@@ -102,8 +101,7 @@ def infer_video(
         mixed_precision: Whether to enable lower-precision execution when supported.
 
     Returns:
-        A list of NumPy arrays with keypoints and scores for each frame.
-        Empty arrays are included for frames with no detections.
+        List[np.ndarray]: Per-frame keypoints and scores, including empty frames.
     """
     if input_path.lower() == "webcam":
         input_path = 0  # OpenCV uses 0 for the default webcam
@@ -173,7 +171,9 @@ def infer_video(
                 continue
 
             # Append frame results
-            frame_results = np.concatenate([keypoints, scores[..., np.newaxis]], axis=-1)
+            frame_results = np.concatenate(
+                [keypoints, scores[..., np.newaxis]], axis=-1
+            )
             if spine_only:
                 frame_results = frame_results[:, spine_ids, :]
             all_results.append(frame_results)
@@ -190,7 +190,12 @@ def infer_video(
 
 
 def _imshow(img, title="Image"):
-    """Display an image with a maximum dimension of 1024 pixels."""
+    """Displays an image resized to a maximum dimension of 1024 pixels.
+
+    Args:
+        img: Image to display.
+        title: Window title.
+    """
     h, w = img.shape[:2]
     scale = 1024 / max(h, w)
     new_h, new_w = int(h * scale), int(w * scale)
@@ -199,9 +204,11 @@ def _imshow(img, title="Image"):
 
 
 def _write_frame(keypoints_array, save_path):
-    """
-    Write a single frame's keypoints in OpenPose-compatible JSON format.
-    Expected input shape: [num_people, num_keypoints, 3] (x, y, score)
+    """Writes one frame of keypoints in OpenPose JSON format.
+
+    Args:
+        keypoints_array: Keypoints in ``(num_people, num_keypoints, 3)`` format.
+        save_path: Output JSON path.
     """
     people = []
 
@@ -217,36 +224,63 @@ def _write_frame(keypoints_array, save_path):
 
 
 def _exists(filepath):
-    """Check if the file exists."""
+    """Checks whether a file exists.
+
+    Args:
+        filepath: File path to check.
+
+    Returns:
+        bool: ``True`` if the file exists.
+    """
     return os.path.isfile(filepath)
 
 
 def _is_valid(filepath, formats):
-    """Check if the file has a valid format."""
+    """Checks whether a file has an allowed extension.
+
+    Args:
+        filepath: File path to check.
+        formats: Allowed file extensions.
+
+    Returns:
+        bool: ``True`` if the file extension is allowed.
+    """
     _, ext = os.path.splitext(filepath)
     return ext.lower() in formats
 
 
 def _is_image(filename):
-    """Check if the file is an image."""
+    """Checks whether a path points to a supported image file.
+
+    Args:
+        filename: File path to check.
+
+    Returns:
+        bool: ``True`` if the file is a supported image.
+    """
     img_exts = [".jpg", ".jpeg", ".png", ".bmp"]
     return _exists(filename) and _is_valid(filename, img_exts)
 
 
 def _is_video(filename):
-    """Check if the file is a video."""
+    """Checks whether a path points to a supported video file.
+
+    Args:
+        filename: File path to check.
+
+    Returns:
+        bool: ``True`` if the file is a supported video.
+    """
     video_exts = [".mp4", ".avi", ".mov", ".mkv"]
     return _exists(filename) and _is_valid(filename, video_exts)
 
 
 def main():
+    """Parses CLI arguments and runs image or video inference."""
     parser = argparse.ArgumentParser(description="SpinePose Inference")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
-        "--version",
-        "-V",
-        action="store_true",
-        help="Print the version and exit."
+        "--version", "-V", action="store_true", help="Print the version and exit."
     )
     group.add_argument(
         "--input_path",
@@ -343,16 +377,14 @@ def main():
             mixed_precision=args.mixed_precision,
         )
     else:
-        raise ValueError(
-            "Input path must be a valid image or video file."
-        )
+        raise ValueError("Input path must be a valid image or video file.")
 
     # Save the results if a save path is provided
     if args.save_path is not None:
         save_path = Path(args.save_path)
         if image_mode and save_path.suffix.lower() != ".json":
             raise ValueError("Save path must be a JSON file.")
-        
+
         if image_mode:
             save_path.parent.mkdir(parents=True, exist_ok=True)
             _write_frame(results, save_path)

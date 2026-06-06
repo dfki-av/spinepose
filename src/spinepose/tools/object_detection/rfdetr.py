@@ -7,6 +7,8 @@ from ..base_tool import BaseTool
 
 
 class RFDETR(BaseTool):
+    """RF-DETR object detector."""
+
     imagenet_mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
     imagenet_std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     pixel_scale = np.float32(1.0 / 255.0)
@@ -20,7 +22,7 @@ class RFDETR(BaseTool):
         class_ids: list[int] | None = [0],
         **kwargs,
     ) -> None:
-        """Initializes the RF-DETR detector.
+        """Initializes the detector.
 
         Args:
             onnx_model: Path to the ONNX model.
@@ -48,12 +50,26 @@ class RFDETR(BaseTool):
 
     @staticmethod
     def _sigmoid(x: np.ndarray) -> np.ndarray:
-        """Applies the sigmoid function elementwise."""
+        """Applies the sigmoid function elementwise.
+
+        Args:
+            x: Input array.
+
+        Returns:
+            np.ndarray: Sigmoid-transformed values.
+        """
         return 1.0 / (1.0 + np.exp(-x))
 
     @staticmethod
     def _box_cxcywh_to_xyxy(boxes: np.ndarray) -> np.ndarray:
-        """Converts boxes from center-width-height to corner format."""
+        """Converts boxes from center-width-height to corner format.
+
+        Args:
+            boxes: Bounding boxes in ``cxcywh`` format.
+
+        Returns:
+            np.ndarray: Bounding boxes in ``xyxy`` format.
+        """
         cx = boxes[..., 0]
         cy = boxes[..., 1]
         w = np.clip(boxes[..., 2], a_min=0.0, a_max=None)
@@ -64,18 +80,36 @@ class RFDETR(BaseTool):
 
     @staticmethod
     def _empty_detections() -> dict[str, np.ndarray]:
-        """Returns an empty detection payload."""
+        """Returns an empty detection payload.
+
+        Returns:
+            dict[str, np.ndarray]: Empty boxes and confidence arrays.
+        """
         return {
             "xyxy": np.empty((0, 4), dtype=np.float32),
             "confidence": np.empty((0,), dtype=np.float32),
         }
 
     def __call__(self, image: np.ndarray) -> np.ndarray:
-        """Runs detection and returns boxes only."""
+        """Runs detection and returns boxes only.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            np.ndarray: Detected bounding boxes.
+        """
         return self.predict(image)["xyxy"]
 
     def predict(self, image: np.ndarray) -> dict[str, np.ndarray]:
-        """Runs detection and returns boxes with confidence scores."""
+        """Runs detection and returns boxes with confidence scores.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            dict[str, np.ndarray]: Detection payload with boxes and confidences.
+        """
         image, target_sizes = self.preprocess(image)
         outputs = self.inference(image)
         return self.postprocess(outputs, target_sizes, return_scores=True)

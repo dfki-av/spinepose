@@ -6,10 +6,10 @@ from typing import Any
 
 
 def deprecation_warning(message: str):
-    """Issue a deprecation warning.
+    """Issues a deprecation warning.
 
     Args:
-        message: Message value.
+        message: Warning message to emit.
     """
     warnings.warn(message, DeprecationWarning, stacklevel=2)
 
@@ -19,17 +19,23 @@ def deprecated_arg(
     new_arg: str | None = None,
     default: Any = None,
 ):
-    """Decorator to mark a function argument as deprecated.
+    """Creates a decorator for deprecated keyword arguments.
 
     Args:
-        old_arg: Old argument name.
-        new_arg: Optional new argument name.
-        default: Default value for the new argument, if specified.
+        old_arg: Deprecated argument name.
+        new_arg: Replacement argument name, if any.
+        default: Default value to use for the replacement argument.
+
+    Returns:
+        Any: Decorator that handles the deprecated argument.
     """
 
     def decorator(func):
+        """Wraps a callable with deprecated-argument handling."""
+
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Rewrites deprecated keyword arguments before calling the function."""
             if old_arg in kwargs:
                 # Emit a deprecation warning
                 message = f"The '{old_arg}' argument is deprecated."

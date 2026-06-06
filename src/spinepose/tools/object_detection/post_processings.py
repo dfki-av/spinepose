@@ -2,7 +2,16 @@ import numpy as np
 
 
 def nms(boxes, scores, nms_thr):
-    """Single class NMS implemented in Numpy."""
+    """Applies non-maximum suppression for one class.
+
+    Args:
+        boxes: Bounding boxes in ``xyxy`` format.
+        scores: Confidence scores for the boxes.
+        nms_thr: IoU threshold for suppression.
+
+    Returns:
+        list[int]: Indices of the boxes to keep.
+    """
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]
     x2 = boxes[:, 2]
@@ -32,9 +41,16 @@ def nms(boxes, scores, nms_thr):
 
 
 def multiclass_nms(boxes, scores, nms_thr, score_thr):
-    """Multiclass NMS implemented in Numpy.
+    """Applies class-aware non-maximum suppression.
 
-    Class-aware version.
+    Args:
+        boxes: Bounding boxes in ``xyxy`` format.
+        scores: Per-class confidence scores.
+        nms_thr: IoU threshold for suppression.
+        score_thr: Minimum class score required to keep a box.
+
+    Returns:
+        tuple: Final detections and the last set of kept indices, or ``(None, None)``.
     """
     final_dets = []
     num_classes = scores.shape[1]

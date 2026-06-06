@@ -7,14 +7,14 @@ from .tools.smoothing import KeypointSmoothing
 
 
 def compute_iou(bboxA, bboxB):
-    """Compute the Intersection over Union (IoU) between two boxes .
+    """Computes the intersection-over-union between two boxes.
 
     Args:
-        bboxA (list): The first bbox info (left, top, right, bottom, score).
-        bboxB (list): The second bbox info (left, top, right, bottom, score).
+        bboxA: First bounding box in ``xyxy`` format.
+        bboxB: Second bounding box in ``xyxy`` format.
 
     Returns:
-        float: The IoU value.
+        float: Intersection-over-union score.
     """
 
     x1 = max(bboxA[0], bboxB[0])
@@ -35,14 +35,14 @@ def compute_iou(bboxA, bboxB):
 
 
 def pose_to_bbox(keypoints: np.ndarray, expansion: float = 1.25) -> np.ndarray:
-    """Get bounding box from keypoints.
+    """Builds a bounding box around a set of keypoints.
 
     Args:
-        keypoints (np.ndarray): Keypoints of person.
-        expansion (float): Expansion ratio of bounding box.
+        keypoints: Keypoints for one pose.
+        expansion: Expansion factor applied to the box.
 
     Returns:
-        np.ndarray: Bounding box of person.
+        np.ndarray: Bounding box in ``xyxy`` format.
     """
     x = keypoints[:, 0]
     y = keypoints[:, 1]
@@ -57,12 +57,7 @@ def pose_to_bbox(keypoints: np.ndarray, expansion: float = 1.25) -> np.ndarray:
 
 
 class PoseTracker:
-    """
-    Multi-frame pose tracker that adds temporal consistency by associating detections across frames.
-
-    This class delegates single-frame pose estimation to a BasePoseSolution instance,
-    and handles tracking (e.g. assigning track IDs and reusing bounding boxes across frames).
-    """
+    """Tracks poses across frames for temporal consistency."""
 
     MIN_AREA = 1000
 
@@ -85,14 +80,23 @@ class PoseTracker:
         detector: str = "rfdetr",
         **kwargs,
     ):
-        """
+        """Initializes the pose tracker.
+
         Args:
-            solution (BasePoseSolution): An instance of the pose estimation solution.
-            det_frequency (int): Frequency of running detection (e.g. every N frames).
-            max_detections (int): Maximum number of detections to consider.
-            tracking (bool): If True, tracking is enabled.
-            tracking_thr (float): IoU threshold for associating bounding boxes.
-            model_version (str): Model version to use. One of: 'latest', 'v2', 'v1'.
+            solution: Pose solution class to instantiate.
+            mode: Model preset to load.
+            det_frequency: Detection frequency in frames.
+            max_detections: Maximum number of detections to consider.
+            tracking: Whether to enable tracking.
+            tracking_thr: IoU threshold for track association.
+            smoothing: Whether to smooth keypoints over time.
+            smoothing_freq: Expected frame rate for smoothing.
+            smoothing_mincutoff: Minimum cutoff for smoothing.
+            smoothing_beta: Speed coefficient for smoothing.
+            smoothing_dcutoff: Derivative cutoff for smoothing.
+            model_version: Model version to use.
+            detector: Detector name to use.
+            **kwargs: Additional arguments forwarded to the solution.
         """
         self.solution = solution(
             mode=mode,
@@ -116,22 +120,33 @@ class PoseTracker:
         self.reset()
 
     def reset(self):
-        """Reset the tracking state."""
+        """Resets the internal tracking state."""
         self.frame_cnt = 0
         self.next_id = 0
         self.bboxes_last_frame = []
         self.track_ids_last_frame = []
 
     def visualize(self, image: np.ndarray, keypoints: np.ndarray, scores: np.ndarray):
+        """Draws the tracked pose predictions on an image.
+
+        Args:
+            image: Input image.
+            keypoints: Predicted keypoints.
+            scores: Predicted confidence scores.
+
+        Returns:
+            np.ndarray: Annotated image.
+        """
         return self.solution.visualize(image, keypoints, scores)
 
     def __call__(self, image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Process a single frame: run pose estimation and update tracking.
+        """Processes a single frame and updates tracking state.
+
+        Args:
+            image: Input image.
 
         Returns:
-            keypoints (np.ndarray): The estimated keypoints.
-            scores (np.ndarray): The associated confidence scores.
+            Tuple[np.ndarray, np.ndarray]: Keypoints and confidence scores.
         """
         # Determine bounding boxes using detection (if available) or reuse from last frame
         if self.solution.det_model:
@@ -197,14 +212,13 @@ class PoseTracker:
         return keypoints, scores
 
     def track_by_iou(self, bbox):
-        """
-        Greedily assign a track id based on IoU between the current bbox and those from the previous frame.
+        """Assigns a track ID using IoU against the previous frame.
 
         Args:
-            bbox (list): Current bounding box [left, top, right, bottom].
+            bbox: Current bounding box in ``xyxy`` format.
 
         Returns:
-            tuple: (track_id, max_iou) where track_id is the assigned id (or -1 if no match) and max_iou is the IoU score.
+            tuple: Assigned track ID and the best IoU score.
         """
         area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
         max_iou = -1

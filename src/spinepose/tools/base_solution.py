@@ -10,17 +10,7 @@ from .visualization import draw_skeleton
 
 
 class BasePoseSolution:
-    """
-    Single-frame pose estimation solution.
-
-    This class is responsible for:
-      - Running the detection model (if available) to generate bounding boxes.
-      - Running the pose estimation model on provided bounding boxes.
-      - Optionally postprocessing the output keypoints and scores.
-
-    The __call__ method accepts an image and, optionally, precomputed bounding boxes.
-    If no bounding boxes are provided, detection is performed automatically.
-    """
+    """Base class for single-frame pose estimation pipelines."""
 
     def __init__(
         self,
@@ -30,6 +20,15 @@ class BasePoseSolution:
         detector: str = "yolox",
         **kwargs,
     ):
+        """Initializes the pose solution.
+
+        Args:
+            metainfo: Skeleton metadata used for visualization and outputs.
+            config: Model configuration mapping by mode.
+            mode: Model preset to load.
+            detector: Detector name to use.
+            **kwargs: Additional arguments forwarded to the model tools.
+        """
         self.metainfo = metainfo
         self.num_keypoints = len(metainfo["keypoint_info"])
 
@@ -67,17 +66,27 @@ class BasePoseSolution:
         )
 
     def detect(self, image: np.ndarray) -> np.ndarray:
-        """Run detection to get bounding boxes from the image."""
+        """Runs person detection on an image.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            np.ndarray: Detected bounding boxes.
+        """
         return self.det_model(image)
 
     def estimate(
         self, image: np.ndarray, bboxes: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Run pose estimation on the image using the given bounding boxes.
+        """Runs pose estimation for a set of bounding boxes.
+
+        Args:
+            image: Input image.
+            bboxes: Bounding boxes to estimate poses for.
 
         Returns:
-            A tuple (keypoints, scores) after postprocessing.
+            Tuple[np.ndarray, np.ndarray]: Keypoints and confidence scores.
         """
         # Process each bounding box concurrently
         results = concurrent_forloop(
@@ -102,20 +111,29 @@ class BasePoseSolution:
     def postprocess(
         self, keypoints: np.ndarray, scores: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Optionally postprocess the keypoints and scores.
+        """Postprocesses predicted keypoints and scores.
 
-        Override this method if additional postprocessing is needed.
+        Args:
+            keypoints: Predicted keypoints.
+            scores: Predicted confidence scores.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Postprocessed keypoints and scores.
         """
         return keypoints, scores
 
     def visualize(
         self, image: np.ndarray, keypoints: np.ndarray, scores: np.ndarray
     ) -> np.ndarray:
-        """
-        Visualize the keypoints and scores on the image.
+        """Draws pose predictions on an image.
 
-        Override this method if custom visualization is needed.
+        Args:
+            image: Input image.
+            keypoints: Predicted keypoints.
+            scores: Predicted confidence scores.
+
+        Returns:
+            np.ndarray: Annotated image.
         """
         scale = image.shape[1] / 800
         radius = int(4 * scale)
@@ -132,10 +150,14 @@ class BasePoseSolution:
     def __call__(
         self, image: np.ndarray, bboxes: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Run the full single-frame pipeline.
+        """Runs the full single-frame pose pipeline.
 
-        If `bboxes` is provided, it is used directly; otherwise, detection is performed.
+        Args:
+            image: Input image.
+            bboxes: Optional precomputed bounding boxes.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Keypoints and confidence scores.
         """
         if bboxes is None:
             bboxes = self.detect(image)
