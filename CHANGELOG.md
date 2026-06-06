@@ -8,8 +8,9 @@ release on `main`.
 
 ## [Unreleased]
 
-This section tracks changes after `v2.0.2` (`f0f378f`). These changes are not
-part of any released PyPI version yet.
+No unreleased changes.
+
+## [2.1.0] - 2026-06-06
 
 ### Added
 - RF-DETR and YOLOX detectors now expose a consistent `predict()` API and can
