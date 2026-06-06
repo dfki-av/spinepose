@@ -18,6 +18,8 @@ Lightweight CLI and Python API for spine-aware human pose estimation in the wild
 
 SpinePose is an inference library for spine-aware 2D human pose estimation in the wild. It provides a simple CLI and Python API for running inference on images and videos using pretrained models presented in our papers **"Towards Unconstrained 2D Pose Estimation of the Human Spine" (CVPR Workshops 2025)** and **"SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking" (CVPR 2026)**. Our models predict the SpineTrack skeleton hierarchy comprising 37 keypoints, including 9 directly along the spine chain in addition to the standard body joints.
 
+See [CHANGELOG.md](CHANGELOG.md) for release history and upcoming unreleased changes.
+
 ## Getting Started
 
 **Recommended Python Version:** 3.9–3.12
@@ -102,20 +104,6 @@ results = infer_image('path/to/image.jpg', vis_path='output.jpg')
 # Video inference with optional temporal smoothing
 results = infer_video('path/to/video.mp4', vis_path='output_video.mp4', use_smoothing=True)
 ```
-
-## Release Notes
-
-### v2.0.2
-
-- Added detector selection in CLI/API: use `--detector rfdetr|yolox` (CLI) or `detector='rfdetr'|'yolox'` (Python).
-- Integrated RF-DETR as an alternative detector with YOLOX-compatible inference interfaces.
-
-### v2.0.1
-
-- Added model family selection in CLI/API.
-- CLI: use `--model-version v1|v2|latest` (for example, `--model-version v1`).
-- Python API: use `model_version='v1'|'v2'|'latest'` (for example, `SpinePoseEstimator(model_version='v1')`).
-- `v1` loads SpineTrack-trained models; `v2` and `latest` load SIMSPINE-trained V2 models (`latest` is default).
 
 ## Model Zoo
 
