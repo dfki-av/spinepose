@@ -14,6 +14,8 @@ part of any released PyPI version yet.
 ### Added
 - RF-DETR and YOLOX detectors now expose a consistent `predict()` API and can
   optionally return confidence scores alongside bounding boxes.
+- Added an experimental 2D-to-3D pose lifter that can return camera-space
+  keypoints from `SpinePoseEstimator` when lifting is enabled.
 - Added ONNX Runtime session utilities for provider selection, provider tuning,
   caching, and hardware-aware session creation.
 - Added deprecation utilities for managing public API argument transitions.
@@ -105,4 +107,3 @@ part of any released PyPI version yet.
 ### Changed
 - Updated packaging and requirements for ONNX Runtime-based inference.
 - Added README guidance for GPU installation.
-

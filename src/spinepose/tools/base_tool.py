@@ -23,8 +23,8 @@ class BaseTool(metaclass=ABCMeta):
         self,
         onnx_model: Optional[str] = None,
         model_input_size: Optional[Tuple[int, int]] = None,
-        mean: Optional[Tuple[float, float, float]] = None,
-        std: Optional[Tuple[float, float, float]] = None,
+        mean: Optional[Tuple[float, ...]] = None,
+        std: Optional[Tuple[float, ...]] = None,
         hardware_acceleration: bool = True,
         mixed_precision: bool = False,
     ):
@@ -164,20 +164,24 @@ class BaseTool(metaclass=ABCMeta):
         return tuple(self.session.run(output_names, {input_name: x}))
 
     def inference(self, img: np.ndarray):
-        """Runs inference on an image batch.
+        """Runs inference on an image or coordinate batch.
 
         Args:
-            img: Input image or image batch in HWC or BHWC format.
+            img: Input image in HWC/BHWC format, or coordinate batch with shape
+                ``(N, K, 2)``.
 
         Returns:
             Any: Session outputs.
 
         Raises:
-            ValueError: If the input shape is not a supported image layout.
+            ValueError: If the input shape is not supported.
         """
+        if img.ndim == 3 and img.shape[-1] == 2:
+            return self._run_session(img.astype(np.float32, copy=False))
+
         if img.ndim not in [3, 4] or img.shape[-1] not in (1, 3, 4):
             raise ValueError(
-                f"Expected HxWxC image with 1/3/4 channels, got {img.shape}"
+                f"Expected HxWxC/BHxWxC image or NxKx2 coordinates, got {img.shape}"
             )
 
         # Normalize to BHWC first.

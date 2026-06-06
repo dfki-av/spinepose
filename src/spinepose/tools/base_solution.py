@@ -96,9 +96,9 @@ class BasePoseSolution:
 
         if len(results) == 0:
             # No bounding boxes detected
-            return np.zeros((0, self.num_keypoints, 3)), np.zeros(
-                (0, self.num_keypoints)
-            )
+            keypoints = np.zeros((0, self.num_keypoints, 2))
+            scores = np.zeros((0, self.num_keypoints))
+            return keypoints, scores
 
         # Concatenate results
         keypoints, scores = zip(*results)
