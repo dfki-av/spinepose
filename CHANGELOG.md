@@ -37,6 +37,8 @@ part of any released PyPI version yet.
   source model file in place.
 - `BaseTool.inference()` now accepts batched coordinate tensors for pose-lifting
   models in addition to image tensors.
+- Inference helpers now release ONNX Runtime sessions before process shutdown to
+  reduce provider cleanup warnings on accelerated backends.
 
 ### Deprecated
 - Deprecated the public `backend` argument.

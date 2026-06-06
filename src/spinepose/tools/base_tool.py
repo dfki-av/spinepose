@@ -73,6 +73,10 @@ class BaseTool(metaclass=ABCMeta):
         """
         raise NotImplementedError
 
+    def close(self) -> None:
+        """Releases the underlying ONNX Runtime session reference."""
+        self.session = None
+
     @staticmethod
     def _shape_dim_to_int(value):
         """Converts a static shape dimension to an integer.

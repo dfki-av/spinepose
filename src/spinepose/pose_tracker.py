@@ -345,6 +345,13 @@ class PoseTracker:
         """
         return self.solution.visualize(image, keypoints, scores)
 
+    def close(self) -> None:
+        """Releases model resources held by the tracker."""
+        close = getattr(self.solution, "close", None)
+        if close is not None:
+            close()
+        self.filters.clear()
+
     def __call__(
         self, image: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:

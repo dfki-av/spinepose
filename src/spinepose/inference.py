@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import os
 import warnings
@@ -87,6 +88,14 @@ def _append_world_panel(
     return np.concatenate([image, panel], axis=1)
 
 
+def _release_model(model: object) -> None:
+    """Releases model resources before process shutdown."""
+    close = getattr(model, "close", None)
+    if close is not None:
+        close()
+    gc.collect()
+
+
 def infer_image(
     input_path: str,
     mode: str = "medium",
@@ -170,6 +179,7 @@ def infer_image(
 
     if len(keypoints) == 0:
         empty = np.array([])
+        _release_model(model)
         return (empty, empty) if enable_lifting else empty
 
     if spine_only:
@@ -209,8 +219,10 @@ def infer_image(
         results = _slice_spine_only(results, spine_ids)
         results_3d = _slice_spine_only(results_3d, spine_ids)
     if enable_lifting:
+        _release_model(model)
         return results, results_3d
 
+    _release_model(model)
     return results
 
 
@@ -379,6 +391,7 @@ def infer_video(
     cv2.destroyAllWindows()
     if writer is not None:
         writer.close()
+    _release_model(pose_tracker)
 
     return all_results
 

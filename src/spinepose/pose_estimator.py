@@ -228,3 +228,10 @@ class SpinePoseEstimator(BasePoseSolution):
             lifting is enabled.
         """
         return super().__call__(image, bboxes)
+
+    def close(self) -> None:
+        """Releases model resources held by the estimator."""
+        super().close()
+        close = getattr(self._lifting_model, "close", None)
+        if close is not None:
+            close()

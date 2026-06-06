@@ -147,6 +147,13 @@ class BasePoseSolution:
             line_width=line_width,
         )
 
+    def close(self) -> None:
+        """Releases model resources held by the solution."""
+        for model in (self.det_model, self.pose_model):
+            close = getattr(model, "close", None)
+            if close is not None:
+                close()
+
     def __call__(
         self, image: np.ndarray, bboxes: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
