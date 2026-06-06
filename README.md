@@ -16,7 +16,7 @@ Lightweight CLI and Python API for spine-aware human pose estimation in the wild
 
 ---
 
-SpinePose is an inference library for spine-aware 2D human pose estimation in the wild. It provides a simple CLI and Python API for running inference on images and videos using pretrained models presented in our papers **"Towards Unconstrained 2D Pose Estimation of the Human Spine" (CVPR Workshops 2025)** and **"SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking" (CVPR 2026)**. Our models predict the SpineTrack skeleton hierarchy comprising 37 keypoints, including 9 directly along the spine chain in addition to the standard body joints.
+SpinePose is an inference library for spine-aware 2D human pose estimation in the wild. It provides a simple CLI and Python API for running inference on images and videos using pretrained models presented in our papers **"Towards Unconstrained 2D Pose Estimation of the Human Spine" (CVPR Workshops 2025)** and **"SIMSPINE: A Biomechanics-Aware Simulation Framework for 3D Spine Motion Annotation and Benchmarking" (CVPR 2026)**. Our models predict the SpineTrack skeleton hierarchy comprising 37 keypoints, including 9 directly along the spine chain in addition to the standard body joints. Experimental 2D-to-3D pose lifting is also available for camera-space and tracker-calibrated world-space keypoints.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history and upcoming unreleased changes.
 Developer setup and contribution guidelines are documented in
@@ -46,7 +46,12 @@ usage: spinepose [-h] (--version | --input_path INPUT_PATH) [--vis-path VIS_PATH
                  [--detector {rfdetr,yolox}]
                  [--max-detections MAX_DETECTIONS]
                  [--hardware-acceleration | --no-hardware-acceleration]
-                 [--mixed-precision | --no-mixed-precision] [--spine-only] [--model-version MODEL_VERSION]
+                 [--mixed-precision | --no-mixed-precision] [--enable-lifting]
+                 [--camera-field-of-view CAMERA_FIELD_OF_VIEW]
+                 [--no-metric-scale] [--no-camera-pose] [--no-ground-plane]
+                 [--primary-subject-height PRIMARY_SUBJECT_HEIGHT]
+                 [--warmup-frames WARMUP_FRAMES] [--no-lifting-panel]
+                 [--nosmooth] [--spine-only] [--model-version MODEL_VERSION]
 
 SpinePose Inference
 
@@ -69,6 +74,17 @@ options:
                          Enable non-CPU execution providers when available (default: enabled)
   --mixed-precision, --no-mixed-precision
                          Enable lower-precision execution when supported (default: disabled)
+  --enable-lifting       Enable 2D-to-3D pose lifting and return world-space 3D keypoints.
+  --camera-field-of-view CAMERA_FIELD_OF_VIEW
+                         Diagonal camera field of view in degrees for intrinsic estimation.
+  --no-metric-scale      Disable metric scale estimation from the primary subject height.
+  --no-camera-pose       Keep lifted keypoints in camera orientation instead of world orientation.
+  --no-ground-plane      Disable ground-plane alignment for world orientation.
+  --primary-subject-height PRIMARY_SUBJECT_HEIGHT
+                         Primary subject height in meters for metric scale estimation.
+  --warmup-frames WARMUP_FRAMES
+                         Number of video frames used to stabilize camera calibration.
+  --no-lifting-panel     Do not append the 3D world-pose panel when lifting is enabled.
   --nosmooth            Disable keypoint smoothing for video inference (default: enabled)
   --spine-only          Only use 9 spine keypoints (default: use all 37 keypoints)
   --model-version MODEL_VERSION
@@ -78,10 +94,27 @@ options:
 For example, to run inference on a video and save only spine keypoints in OpenPose format:
 
 ```bash
-spinepose --input_path path/to/video.mp4 --save-path output_path.json --spine-only
+spinepose --input_path path/to/video.mp4 --save-path output_frames --spine-only
 ```
 
-This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use `spinepose -h` to view all available options, including detector selection and hardware acceleration controls.
+To enable 2D-to-3D lifting, save OpenPose-style 2D/3D JSON, and append a
+world-space X/Y panel to the visualization:
+
+```bash
+spinepose \
+  --input_path path/to/video.mp4 \
+  --enable-lifting \
+  --save-path output_frames \
+  --vis-path output_video.mp4
+```
+
+When lifting is enabled, saved JSON files include `pose_keypoints_2d` as
+`x, y, score` triples and `pose_keypoints_3d` as `x, y, z, score` tuples.
+`PoseTracker` estimates camera pose and returns 3D keypoints in world space by
+default. Use `--no-camera-pose` to keep camera-oriented coordinates, or
+`--no-ground-plane` to skip ground-plane alignment.
+
+This automatically downloads the model weights (if not already present) and outputs the annotated image or video. Use `spinepose -h` to view all available options, including detector selection, hardware acceleration controls, and lifting controls.
 
 ### Using the Python API
 
@@ -113,6 +146,30 @@ results = infer_image('path/to/image.jpg', vis_path='output.jpg')
 # Video inference with optional temporal smoothing
 results = infer_video('path/to/video.mp4', vis_path='output_video.mp4', use_smoothing=True)
 ```
+
+Enable lifting in the simplified API to receive 2D and 3D OpenPose-style arrays:
+
+```python
+from spinepose.inference import infer_image, infer_video
+
+keypoints_2d, keypoints_3d = infer_image(
+    'path/to/image.jpg',
+    enable_lifting=True,
+    vis_path='output.jpg',
+)
+
+video_results = infer_video(
+    'path/to/video.mp4',
+    enable_lifting=True,
+    vis_path='output_video.mp4',
+)
+frame_keypoints_2d, frame_keypoints_3d = video_results[0]
+```
+
+For lower-level access, `SpinePoseEstimator(enable_lifting=True)` returns
+camera-space 3D keypoints as a third output, while `PoseTracker(...,
+enable_lifting=True)` converts lifted keypoints to world space using estimated
+camera orientation.
 
 ## Model Zoo
 

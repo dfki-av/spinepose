@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import cv2
+import numpy as np
 
 
 def draw_bbox(img, bboxes, color=(0, 255, 0)):
@@ -17,6 +20,103 @@ def draw_bbox(img, bboxes, color=(0, 255, 0)):
             img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2
         )
     return img
+
+
+def draw_world_pose_panel(
+    points_world: np.ndarray,
+    scores: np.ndarray,
+    metainfo: dict,
+    panel_size: tuple[int, int],
+    center: np.ndarray | None = None,
+    radius: float | None = None,
+    threshold: float = 0.5,
+) -> np.ndarray:
+    """Draws an X/Y world-space pose panel.
+
+    Args:
+        points_world: World-space keypoints with shape ``(K, 3)`` or ``(N, K, 3)``.
+        scores: Keypoint scores with shape ``(K,)`` or ``(N, K)``.
+        metainfo: Skeleton metadata.
+        panel_size: Panel size as ``(width, height)``.
+        center: Optional X/Y panel center.
+        radius: Optional X/Y panel radius.
+        threshold: Minimum score required to draw a keypoint.
+
+    Returns:
+        np.ndarray: Rendered BGR panel.
+    """
+    width, height = panel_size
+    panel = np.full((height, width, 3), 18, dtype=np.uint8)
+    points_world = np.asarray(points_world, dtype=np.float32)
+    scores = np.asarray(scores, dtype=np.float32)
+    if points_world.ndim == 2:
+        points_world = points_world[None, :, :]
+        scores = scores[None, :]
+
+    visible_xy = points_world[..., :2][scores >= threshold]
+    if center is None:
+        if len(visible_xy) == 0:
+            center = np.zeros(2, dtype=np.float32)
+        else:
+            min_xy = visible_xy.min(axis=0)
+            max_xy = visible_xy.max(axis=0)
+            center = 0.5 * (min_xy + max_xy)
+    else:
+        center = np.asarray(center, dtype=np.float32)
+
+    if radius is None:
+        if len(visible_xy) == 0:
+            radius = 1.0
+        else:
+            span = np.abs(visible_xy - center[None, :]).max()
+            radius = max(1.0, float(span) * 1.2)
+
+    def project(point: np.ndarray) -> tuple[int, int]:
+        x = (float(point[0]) - float(center[0])) / (2.0 * radius) + 0.5
+        y = 0.5 - (float(point[1]) - float(center[1])) / (2.0 * radius)
+        return int(round(x * width)), int(round(y * height))
+
+    ground_y = project(np.array([center[0], 0.0], dtype=np.float32))[1]
+    if 0 <= ground_y < height:
+        cv2.line(panel, (0, ground_y), (width, ground_y), (80, 80, 80), 1, cv2.LINE_AA)
+
+    keypoint_info = metainfo["keypoint_info"]
+    skeleton_info = metainfo["skeleton_info"]
+    link_dict = {info["name"]: info["id"] for info in keypoint_info.values()}
+
+    for pose_points, pose_scores in zip(points_world, scores):
+        for ske_info in skeleton_info.values():
+            pt0 = link_dict[ske_info["link"][0]]
+            pt1 = link_dict[ske_info["link"][1]]
+            if pose_scores[pt0] < threshold or pose_scores[pt1] < threshold:
+                continue
+            color = tuple(int(c) for c in ske_info["color"][::-1])
+            cv2.line(
+                panel,
+                project(pose_points[pt0]),
+                project(pose_points[pt1]),
+                color,
+                2,
+                cv2.LINE_AA,
+            )
+
+        for joint_id, point in enumerate(pose_points):
+            if pose_scores[joint_id] < threshold:
+                continue
+            color = tuple(int(c) for c in keypoint_info[joint_id]["color"][::-1])
+            cv2.circle(panel, project(point), 4, color, -1, cv2.LINE_AA)
+
+    cv2.putText(
+        panel,
+        "World X/Y",
+        (14, 28),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.75,
+        (230, 230, 230),
+        2,
+        cv2.LINE_AA,
+    )
+    return panel
 
 
 def draw_skeleton(

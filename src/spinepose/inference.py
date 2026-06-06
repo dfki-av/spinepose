@@ -5,15 +5,86 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import List
 
 import cv2
 import numpy as np
 from tqdm import tqdm
 
+from spinepose._version import __version__
 from spinepose.pose_estimator import SpinePoseEstimator
 from spinepose.pose_tracker import PoseTracker
-from spinepose._version import __version__
+from spinepose.tools.visualization import draw_world_pose_panel
+
+
+def _stack_2d_keypoints(keypoints: np.ndarray, scores: np.ndarray) -> np.ndarray:
+    """Stacks 2D keypoints and scores into OpenPose-style arrays."""
+    if len(keypoints) == 0:
+        return np.array([])
+    return np.concatenate([keypoints, scores[..., np.newaxis]], axis=-1)
+
+
+def _stack_3d_keypoints(
+    keypoints_3d: np.ndarray | None,
+    scores: np.ndarray,
+) -> np.ndarray:
+    """Stacks 3D keypoints and scores into OpenPose-style arrays."""
+    if keypoints_3d is None or len(keypoints_3d) == 0:
+        return np.array([])
+    return np.concatenate([keypoints_3d, scores[..., np.newaxis]], axis=-1)
+
+
+def _filter_spine_only(
+    keypoints: np.ndarray,
+    scores: np.ndarray,
+    keypoints_3d: np.ndarray | None,
+    spine_ids: list[int],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Masks non-spine keypoints for visualization."""
+    keypoints = keypoints.copy()
+    scores = scores.copy()
+    keypoints_3d = None if keypoints_3d is None else keypoints_3d.copy()
+    if len(scores) == 0:
+        return keypoints, scores, keypoints_3d
+
+    non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
+    scores[:, non_spine_ids] = 0
+    keypoints[:, non_spine_ids, :] = 0
+    if keypoints_3d is not None:
+        keypoints_3d[:, non_spine_ids, :] = 0
+    return keypoints, scores, keypoints_3d
+
+
+def _slice_spine_only(results: np.ndarray, spine_ids: list[int]) -> np.ndarray:
+    """Slices OpenPose-style results to the spine keypoint subset."""
+    if results.size == 0:
+        return results
+    return results[:, spine_ids, :]
+
+
+def _append_world_panel(
+    image: np.ndarray,
+    keypoints_3d: np.ndarray | None,
+    scores: np.ndarray,
+    metainfo: dict | None,
+    enabled: bool,
+) -> np.ndarray:
+    """Appends a world-space X/Y panel when 3D keypoints are available."""
+    if (
+        not enabled
+        or metainfo is None
+        or keypoints_3d is None
+        or len(keypoints_3d) == 0
+    ):
+        return image
+
+    panel_width = max(320, image.shape[1] // 3)
+    panel = draw_world_pose_panel(
+        keypoints_3d,
+        scores,
+        metainfo,
+        panel_size=(panel_width, image.shape[0]),
+    )
+    return np.concatenate([image, panel], axis=1)
 
 
 def infer_image(
@@ -25,7 +96,16 @@ def infer_image(
     detector: str = "rfdetr",
     hardware_acceleration: bool = True,
     mixed_precision: bool = False,
-) -> np.ndarray:
+    enable_lifting: bool = False,
+    camera_intrinsics: np.ndarray | None = None,
+    camera_field_of_view: float | None = 84.0,
+    estimate_metric_scale: bool = True,
+    estimate_camera_pose: bool = True,
+    estimate_ground_plane: bool = True,
+    primary_subject_height: float = 1.84,
+    warmup_frames: int = 1,
+    show_lifting_panel: bool = True,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Runs pose estimation on a single image.
 
     Args:
@@ -38,32 +118,84 @@ def infer_image(
         hardware_acceleration: Whether to use non-CPU execution providers when
             available.
         mixed_precision: Whether to enable lower-precision execution when supported.
+        enable_lifting: Whether to return lifted 3D keypoints.
+        camera_intrinsics: Camera intrinsic matrix for 3D lifting.
+        camera_field_of_view: Diagonal field of view used to estimate intrinsics.
+        estimate_metric_scale: Whether to estimate metric scale from subject height.
+        estimate_camera_pose: Whether to convert lifted keypoints into world space.
+        estimate_ground_plane: Whether to align world orientation to the ground.
+        primary_subject_height: Primary subject height in meters.
+        warmup_frames: Number of frames used to stabilize camera calibration.
+        show_lifting_panel: Whether to append a 3D world-pose panel to visualization.
 
     Returns:
-        np.ndarray: Keypoints and scores in ``(N, K, 4)`` format, or an empty array.
+        np.ndarray | tuple[np.ndarray, np.ndarray]: 2D keypoints in ``(N, K, 3)``
+        format, or ``(keypoints_2d, keypoints_3d)`` when lifting is enabled.
     """
-    model = SpinePoseEstimator(
-        mode,
-        detector=detector,
-        model_version=model_version,
-        hardware_acceleration=hardware_acceleration,
-        mixed_precision=mixed_precision,
-    )
-
     img = cv2.imread(input_path, cv2.IMREAD_COLOR)
-    keypoints, scores = model(img)
+    if enable_lifting:
+        model = PoseTracker(
+            SpinePoseEstimator,
+            mode=mode,
+            detector=detector,
+            tracking=False,
+            smoothing=False,
+            model_version=model_version,
+            hardware_acceleration=hardware_acceleration,
+            mixed_precision=mixed_precision,
+            enable_lifting=True,
+            camera_intrinsics=camera_intrinsics,
+            camera_field_of_view=camera_field_of_view,
+            estimate_metric_scale=estimate_metric_scale,
+            estimate_camera_pose=estimate_camera_pose,
+            estimate_ground_plane=estimate_ground_plane,
+            primary_subject_height=primary_subject_height,
+            warmup_frames=warmup_frames,
+        )
+    else:
+        model = SpinePoseEstimator(
+            mode,
+            detector=detector,
+            model_version=model_version,
+            hardware_acceleration=hardware_acceleration,
+            mixed_precision=mixed_precision,
+        )
+
+    model_results = model(img)
+    if len(model_results) == 3:
+        keypoints, scores, keypoints_3d = model_results
+    else:
+        keypoints, scores = model_results
+        keypoints_3d = None
 
     if len(keypoints) == 0:
-        return np.array([])
+        empty = np.array([])
+        return (empty, empty) if enable_lifting else empty
 
     if spine_only:
-        spine_ids = model.SPINE_IDS
-        non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
-        scores[:, non_spine_ids] = 0
-        keypoints[:, non_spine_ids, :] = 0
+        solution = model.solution if enable_lifting else model
+        spine_ids = solution.SPINE_IDS
+        vis_keypoints, vis_scores, vis_keypoints_3d = _filter_spine_only(
+            keypoints,
+            scores,
+            keypoints_3d,
+            spine_ids,
+        )
+    else:
+        solution = model.solution if enable_lifting else model
+        spine_ids = None
+        vis_keypoints = keypoints
+        vis_scores = scores
+        vis_keypoints_3d = keypoints_3d
 
-    # Create a visualization
-    vis = model.visualize(img, keypoints, scores)
+    vis = model.visualize(img, vis_keypoints, vis_scores)
+    vis = _append_world_panel(
+        vis,
+        vis_keypoints_3d,
+        vis_scores,
+        getattr(solution, "metainfo", None),
+        enable_lifting and show_lifting_panel,
+    )
     if vis_path is None:
         _imshow(vis, "SpinePose Image Inference")
         cv2.waitKey(0)
@@ -71,10 +203,13 @@ def infer_image(
     else:
         cv2.imwrite(vis_path, vis)
 
-    # Stack keypoints and scores for return
-    results = np.concatenate([keypoints, scores[..., np.newaxis]], axis=-1)
+    results = _stack_2d_keypoints(vis_keypoints, vis_scores)
+    results_3d = _stack_3d_keypoints(vis_keypoints_3d, vis_scores)
     if spine_only:
-        results = results[:, spine_ids, :]
+        results = _slice_spine_only(results, spine_ids)
+        results_3d = _slice_spine_only(results_3d, spine_ids)
+    if enable_lifting:
+        return results, results_3d
 
     return results
 
@@ -90,7 +225,16 @@ def infer_video(
     max_detections: int = 10,
     hardware_acceleration: bool = True,
     mixed_precision: bool = False,
-) -> List[np.ndarray]:
+    enable_lifting: bool = False,
+    camera_intrinsics: np.ndarray | None = None,
+    camera_field_of_view: float | None = 84.0,
+    estimate_metric_scale: bool = True,
+    estimate_camera_pose: bool = True,
+    estimate_ground_plane: bool = True,
+    primary_subject_height: float = 1.84,
+    warmup_frames: int = 30,
+    show_lifting_panel: bool = True,
+) -> list[np.ndarray | tuple[np.ndarray, np.ndarray]]:
     """Runs pose estimation on a video file.
 
     Args:
@@ -105,9 +249,19 @@ def infer_video(
             available.
         max_detections: Maximum number of detected people to track per frame.
         mixed_precision: Whether to enable lower-precision execution when supported.
+        enable_lifting: Whether to return lifted 3D keypoints.
+        camera_intrinsics: Camera intrinsic matrix for 3D lifting.
+        camera_field_of_view: Diagonal field of view used to estimate intrinsics.
+        estimate_metric_scale: Whether to estimate metric scale from subject height.
+        estimate_camera_pose: Whether to convert lifted keypoints into world space.
+        estimate_ground_plane: Whether to align world orientation to the ground.
+        primary_subject_height: Primary subject height in meters.
+        warmup_frames: Number of frames used to stabilize camera calibration.
+        show_lifting_panel: Whether to append a 3D world-pose panel to visualization.
 
     Returns:
-        List[np.ndarray]: Per-frame keypoints and scores, including empty frames.
+        list: Per-frame 2D keypoints, or ``(keypoints_2d, keypoints_3d)``
+        tuples when lifting is enabled.
     """
     if input_path.lower() == "webcam":
         input_path = 0  # OpenCV uses 0 for the default webcam
@@ -131,6 +285,14 @@ def infer_video(
         model_version=model_version,
         hardware_acceleration=hardware_acceleration,
         mixed_precision=mixed_precision,
+        enable_lifting=enable_lifting,
+        camera_intrinsics=camera_intrinsics,
+        camera_field_of_view=camera_field_of_view,
+        estimate_metric_scale=estimate_metric_scale,
+        estimate_camera_pose=estimate_camera_pose,
+        estimate_ground_plane=estimate_ground_plane,
+        primary_subject_height=primary_subject_height,
+        warmup_frames=warmup_frames,
     )
 
     writer = None
@@ -154,14 +316,35 @@ def infer_video(
             if not ret:
                 break
 
-            keypoints, scores = pose_tracker(img)
+            tracker_results = pose_tracker(img)
+            if len(tracker_results) == 3:
+                keypoints, scores, keypoints_3d = tracker_results
+            else:
+                keypoints, scores = tracker_results
+                keypoints_3d = None
 
             if spine_only and len(scores) > 0:
                 spine_ids = pose_tracker.solution.SPINE_IDS
-                non_spine_ids = list(set(range(len(scores[0]))) - set(spine_ids))
-                scores[:, non_spine_ids] = 0
+                vis_keypoints, vis_scores, vis_keypoints_3d = _filter_spine_only(
+                    keypoints,
+                    scores,
+                    keypoints_3d,
+                    spine_ids,
+                )
+            else:
+                spine_ids = None
+                vis_keypoints = keypoints
+                vis_scores = scores
+                vis_keypoints_3d = keypoints_3d
 
-            vis = pose_tracker.visualize(img, keypoints, scores)
+            vis = pose_tracker.visualize(img, vis_keypoints, vis_scores)
+            vis = _append_world_panel(
+                vis,
+                vis_keypoints_3d,
+                vis_scores,
+                getattr(pose_tracker.solution, "metainfo", None),
+                enable_lifting and show_lifting_panel,
+            )
 
             # Display the result
             _imshow(vis, "SpinePose Video Inference")
@@ -174,16 +357,20 @@ def infer_video(
                 writer.append_data(vis_rgb)
 
             if len(keypoints) == 0:
-                all_results.append(np.array([]))
+                empty = np.array([])
+                all_results.append((empty, empty) if enable_lifting else empty)
                 continue
 
-            # Append frame results
-            frame_results = np.concatenate(
-                [keypoints, scores[..., np.newaxis]], axis=-1
-            )
+            frame_results = _stack_2d_keypoints(vis_keypoints, vis_scores)
+            frame_results_3d = _stack_3d_keypoints(vis_keypoints_3d, vis_scores)
             if spine_only:
-                frame_results = frame_results[:, spine_ids, :]
-            all_results.append(frame_results)
+                frame_results = _slice_spine_only(frame_results, spine_ids)
+                frame_results_3d = _slice_spine_only(frame_results_3d, spine_ids)
+
+            if enable_lifting:
+                all_results.append((frame_results, frame_results_3d))
+            else:
+                all_results.append(frame_results)
         except KeyboardInterrupt:
             print("Inference interrupted by user.")
             break
@@ -210,24 +397,44 @@ def _imshow(img, title="Image"):
     cv2.imshow(title, img)
 
 
-def _write_frame(keypoints_array, save_path):
+def _write_frame(
+    keypoints_array: np.ndarray,
+    save_path: str | Path,
+    keypoints_3d_array: np.ndarray | None = None,
+) -> None:
     """Writes one frame of keypoints in OpenPose JSON format.
 
     Args:
         keypoints_array: Keypoints in ``(num_people, num_keypoints, 3)`` format.
         save_path: Output JSON path.
+        keypoints_3d_array: Optional 3D keypoints in ``(N, K, 4)`` format.
     """
     people = []
 
     if keypoints_array.size > 0:
-        for person in keypoints_array:
-            keypoints_list = person.reshape(-1).tolist()
-            people.append({"pose_keypoints_2d": keypoints_list})
+        for person_id, person in enumerate(keypoints_array):
+            person_data = {"pose_keypoints_2d": person.reshape(-1).tolist()}
+            if keypoints_3d_array is not None and keypoints_3d_array.size > 0:
+                person_data["pose_keypoints_3d"] = (
+                    keypoints_3d_array[person_id].reshape(-1).tolist()
+                )
+            people.append(person_data)
 
     output_data = {"version": 1.0, "people": people}
 
     with open(save_path, "w") as f:
         json.dump(output_data, f)
+
+
+def _write_result_frame(
+    frame_results: np.ndarray | tuple[np.ndarray, np.ndarray],
+    save_path: str | Path,
+) -> None:
+    """Writes 2D-only or 2D+3D frame results."""
+    if isinstance(frame_results, tuple):
+        _write_frame(frame_results[0], save_path, frame_results[1])
+    else:
+        _write_frame(frame_results, save_path)
 
 
 def _exists(filepath):
@@ -307,7 +514,9 @@ def main():
         "-s",
         type=str,
         default=None,
-        help="Save predictions in OpenPose format (.json for image or folder for video).",
+        help=(
+            "Save predictions in OpenPose format (.json for image or folder for video)."
+        ),
     )
     parser.add_argument(
         "--mode",
@@ -340,6 +549,59 @@ def main():
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Enable lower-precision execution when supported (default: disabled)",
+    )
+    parser.add_argument(
+        "--enable-lifting",
+        action="store_true",
+        help="Enable 2D-to-3D pose lifting and return world-space 3D keypoints.",
+    )
+    parser.add_argument(
+        "--camera-field-of-view",
+        type=float,
+        default=84.0,
+        help="Diagonal camera field of view in degrees for intrinsic estimation.",
+    )
+    parser.add_argument(
+        "--no-metric-scale",
+        dest="estimate_metric_scale",
+        action="store_false",
+        default=True,
+        help="Disable metric scale estimation from the primary subject height.",
+    )
+    parser.add_argument(
+        "--no-camera-pose",
+        dest="estimate_camera_pose",
+        action="store_false",
+        default=True,
+        help=(
+            "Keep lifted keypoints in camera orientation instead of world orientation."
+        ),
+    )
+    parser.add_argument(
+        "--no-ground-plane",
+        dest="estimate_ground_plane",
+        action="store_false",
+        default=True,
+        help="Disable ground-plane alignment for world orientation.",
+    )
+    parser.add_argument(
+        "--primary-subject-height",
+        type=float,
+        default=1.84,
+        help="Primary subject height in meters for metric scale estimation.",
+    )
+    parser.add_argument(
+        "--warmup-frames",
+        type=int,
+        default=30,
+        help="Number of video frames used to stabilize camera calibration.",
+    )
+    parser.add_argument(
+        "--no-lifting-panel",
+        dest="show_lifting_panel",
+        action="store_false",
+        default=True,
+        help="Do not append the 3D world-pose panel when lifting is enabled.",
     )
     parser.add_argument(
         "--nosmooth",
@@ -375,6 +637,14 @@ def main():
             model_version=str(args.model_version),
             hardware_acceleration=args.hardware_acceleration,
             mixed_precision=args.mixed_precision,
+            enable_lifting=args.enable_lifting,
+            camera_field_of_view=args.camera_field_of_view,
+            estimate_metric_scale=args.estimate_metric_scale,
+            estimate_camera_pose=args.estimate_camera_pose,
+            estimate_ground_plane=args.estimate_ground_plane,
+            primary_subject_height=args.primary_subject_height,
+            warmup_frames=args.warmup_frames,
+            show_lifting_panel=args.show_lifting_panel,
         )
     elif _is_video(args.input_path) or args.input_path.lower() == "webcam":
         image_mode = False
@@ -389,6 +659,14 @@ def main():
             model_version=str(args.model_version),
             hardware_acceleration=args.hardware_acceleration,
             mixed_precision=args.mixed_precision,
+            enable_lifting=args.enable_lifting,
+            camera_field_of_view=args.camera_field_of_view,
+            estimate_metric_scale=args.estimate_metric_scale,
+            estimate_camera_pose=args.estimate_camera_pose,
+            estimate_ground_plane=args.estimate_ground_plane,
+            primary_subject_height=args.primary_subject_height,
+            warmup_frames=args.warmup_frames,
+            show_lifting_panel=args.show_lifting_panel,
         )
     else:
         raise ValueError("Input path must be a valid image or video file.")
@@ -401,13 +679,13 @@ def main():
 
         if image_mode:
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            _write_frame(results, save_path)
+            _write_result_frame(results, save_path)
             print(f"Results saved to {save_path}")
 
         else:
             save_path.mkdir(parents=True, exist_ok=True)
             for idx, frame_results in enumerate(tqdm(results, desc="Saving results")):
-                _write_frame(frame_results, save_path / f"frame_{idx:05d}.json")
+                _write_result_frame(frame_results, save_path / f"frame_{idx:05d}.json")
             print(f"Results saved to {save_path} ({len(results)} frames)")
 
 

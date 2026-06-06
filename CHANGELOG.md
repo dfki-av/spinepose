@@ -18,8 +18,11 @@ part of any released PyPI version yet.
   keypoints from `SpinePoseEstimator` when lifting is enabled.
 - Added world-space 3D keypoint output through `PoseTracker`, including camera
   pose estimation and optional ground-plane alignment.
+- Exposed pose lifting through `infer_image`, `infer_video`, and the CLI.
 - Exposed the `PoseTracker` maximum detection limit through `infer_video` and
   the CLI.
+- Added OpenPose-style `pose_keypoints_3d` JSON export and an OpenCV-based
+  world-pose visualization panel for lifted video/image outputs.
 - Added ONNX Runtime session utilities for provider selection, provider tuning,
   caching, and hardware-aware session creation.
 - Added deprecation utilities for managing public API argument transitions.

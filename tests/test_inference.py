@@ -41,6 +41,20 @@ class InferenceHelperTests(unittest.TestCase):
                 [1.0, 2.0, 0.9, 3.0, 4.0, 0.8],
             )
 
+    def test_write_frame_outputs_openpose_3d_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "frame.json"
+            keypoints_2d = np.array([[[1.0, 2.0, 0.9]]])
+            keypoints_3d = np.array([[[1.0, 2.0, 3.0, 0.9]]])
+
+            inference._write_frame(keypoints_2d, output, keypoints_3d)
+
+            payload = json.loads(output.read_text())
+            self.assertEqual(
+                payload["people"][0]["pose_keypoints_3d"],
+                [1.0, 2.0, 3.0, 0.9],
+            )
+
 
 class _FakeEstimator:
     SPINE_IDS = [0, 2]
@@ -100,10 +114,16 @@ class _FakePoseTracker:
         self.solution = Mock(SPINE_IDS=[0])
 
     def __call__(self, image):
-        return (
+        results = (
             np.array([[[1.0, 2.0], [3.0, 4.0]]], dtype=np.float32),
             np.array([[0.9, 0.1]], dtype=np.float32),
         )
+        if self.init_kwargs.get("enable_lifting"):
+            return (
+                *results,
+                np.array([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]], dtype=np.float32),
+            )
+        return results
 
     def visualize(self, image, keypoints, scores):
         return image
@@ -167,17 +187,61 @@ class InferenceAPITests(unittest.TestCase):
                 use_smoothing=False,
                 model_version="v2",
                 detector="rfdetr",
+                max_detections=3,
                 hardware_acceleration=False,
                 mixed_precision=True,
             )
 
         self.assertEqual(_FakePoseTracker.init_kwargs["mode"], "medium")
         self.assertEqual(_FakePoseTracker.init_kwargs["detector"], "rfdetr")
+        self.assertEqual(_FakePoseTracker.init_kwargs["max_detections"], 3)
         self.assertFalse(_FakePoseTracker.init_kwargs["smoothing"])
         self.assertFalse(_FakePoseTracker.init_kwargs["hardware_acceleration"])
         self.assertTrue(_FakePoseTracker.init_kwargs["mixed_precision"])
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].shape, (1, 1, 3))
+
+    def test_infer_video_returns_3d_results_when_lifting_is_enabled(self):
+        with (
+            patch.object(inference, "PoseTracker", _FakePoseTracker),
+            patch.object(
+                inference.cv2,
+                "VideoCapture",
+                _FakeVideoCapture,
+            ),
+            patch.object(inference, "_imshow"),
+            patch.object(
+                inference.cv2,
+                "waitKey",
+                return_value=-1,
+            ),
+            patch.object(
+                inference.cv2,
+                "destroyAllWindows",
+            ),
+        ):
+            results = inference.infer_video(
+                "input.mp4",
+                enable_lifting=True,
+                camera_field_of_view=70.0,
+                estimate_metric_scale=False,
+                estimate_camera_pose=False,
+                estimate_ground_plane=False,
+                primary_subject_height=1.75,
+                warmup_frames=5,
+                show_lifting_panel=False,
+            )
+
+        keypoints_2d, keypoints_3d = results[0]
+        self.assertTrue(_FakePoseTracker.init_kwargs["enable_lifting"])
+        self.assertEqual(_FakePoseTracker.init_kwargs["camera_field_of_view"], 70.0)
+        self.assertFalse(_FakePoseTracker.init_kwargs["estimate_metric_scale"])
+        self.assertFalse(_FakePoseTracker.init_kwargs["estimate_camera_pose"])
+        self.assertFalse(_FakePoseTracker.init_kwargs["estimate_ground_plane"])
+        self.assertEqual(_FakePoseTracker.init_kwargs["primary_subject_height"], 1.75)
+        self.assertEqual(_FakePoseTracker.init_kwargs["warmup_frames"], 5)
+        self.assertEqual(keypoints_2d.shape, (1, 2, 3))
+        self.assertEqual(keypoints_3d.shape, (1, 2, 4))
 
 
 if __name__ == "__main__":
