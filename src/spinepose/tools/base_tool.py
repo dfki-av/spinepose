@@ -26,6 +26,7 @@ class BaseTool(metaclass=ABCMeta):
         mean: Optional[Tuple[float, ...]] = None,
         std: Optional[Tuple[float, ...]] = None,
         hardware_acceleration: bool = True,
+        tensor_rt: bool = False,
         mixed_precision: bool = False,
     ):
         """Initializes the base tool.
@@ -36,6 +37,7 @@ class BaseTool(metaclass=ABCMeta):
             mean: Optional channel-wise normalization mean.
             std: Optional channel-wise normalization standard deviation.
             hardware_acceleration: Whether to use non-CPU execution providers.
+            tensor_rt: Whether to enable TensorRT execution provider (if available).
             mixed_precision: Whether to enable lower-precision execution.
         """
         if not os.path.exists(onnx_model):
@@ -44,7 +46,7 @@ class BaseTool(metaclass=ABCMeta):
         self.session = create_ort_session(
             model_path=onnx_model,
             hardware_acceleration=hardware_acceleration,
-            tensor_rt=False,
+            tensor_rt=tensor_rt,
             mixed_precision=mixed_precision,
         )
 

@@ -104,6 +104,7 @@ def infer_image(
     model_version: str = "latest",
     detector: str = "rfdetr",
     hardware_acceleration: bool = True,
+    tensor_rt: bool = False,
     mixed_precision: bool = False,
     enable_lifting: bool = False,
     camera_intrinsics: np.ndarray | None = None,
@@ -126,6 +127,7 @@ def infer_image(
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
         hardware_acceleration: Whether to use non-CPU execution providers when
             available.
+        tensor_rt: Whether to enable TensorRT execution provider (if available).
         mixed_precision: Whether to enable lower-precision execution when supported.
         enable_lifting: Whether to return lifted 3D keypoints.
         camera_intrinsics: Camera intrinsic matrix for 3D lifting.
@@ -151,6 +153,7 @@ def infer_image(
             smoothing=False,
             model_version=model_version,
             hardware_acceleration=hardware_acceleration,
+            tensor_rt=tensor_rt,
             mixed_precision=mixed_precision,
             enable_lifting=True,
             camera_intrinsics=camera_intrinsics,
@@ -167,6 +170,7 @@ def infer_image(
             detector=detector,
             model_version=model_version,
             hardware_acceleration=hardware_acceleration,
+            tensor_rt=tensor_rt,
             mixed_precision=mixed_precision,
         )
 
@@ -234,8 +238,10 @@ def infer_video(
     vis_path: str | None = None,
     model_version: str = "latest",
     detector: str = "rfdetr",
+    det_frequency: int = 1,
     max_detections: int = 10,
     hardware_acceleration: bool = True,
+    tensor_rt: bool = False,
     mixed_precision: bool = False,
     enable_lifting: bool = False,
     camera_intrinsics: np.ndarray | None = None,
@@ -252,14 +258,16 @@ def infer_video(
     Args:
         input_path: Path to the input video file or 'webcam' for live video.
         mode: Model size to use. One of: 'xlarge', 'large', 'medium', 'small'.
-        detector: Detector to use. One of: 'rfdetr', 'yolox'.
         spine_only: Whether to include only spine keypoints.
         use_smoothing: Whether to apply smoothing to keypoints over time.
         vis_path: Optional path to save the output video.
         model_version: Model version to use. One of: 'latest', 'v2', 'v1'.
+        detector: Detector to use. One of: 'rfdetr', 'yolox'.
+        det_frequency: Frequency of detection (every N frames).
+        max_detections: Maximum number of detected people to track per frame.
         hardware_acceleration: Whether to use non-CPU execution providers when
             available.
-        max_detections: Maximum number of detected people to track per frame.
+        tensor_rt: Whether to enable TensorRT execution provider (if available).
         mixed_precision: Whether to enable lower-precision execution when supported.
         enable_lifting: Whether to return lifted 3D keypoints.
         camera_intrinsics: Camera intrinsic matrix for 3D lifting.
@@ -292,10 +300,12 @@ def infer_video(
         mode=mode,
         detector=detector,
         max_detections=max_detections,
+        det_frequency=det_frequency,
         smoothing=use_smoothing,
         smoothing_freq=fps,
         model_version=model_version,
         hardware_acceleration=hardware_acceleration,
+        tensor_rt=tensor_rt,
         mixed_precision=mixed_precision,
         enable_lifting=enable_lifting,
         camera_intrinsics=camera_intrinsics,
@@ -546,6 +556,12 @@ def main():
         help="Detector backend. One of: 'rfdetr', 'yolox' (default: rfdetr)",
     )
     parser.add_argument(
+        "--det-frequency",
+        type=int,
+        default=1,
+        help="Frequency of detection (every N frames).",
+    )
+    parser.add_argument(
         "--max-detections",
         type=int,
         default=10,
@@ -558,6 +574,12 @@ def main():
         help="Enable non-CPU execution providers when available (default: enabled)",
     )
     parser.add_argument(
+        "--tensor-rt",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Enable TensorRT execution provider when available (default: disabled)",
+    )
+    parser.add_argument(
         "--mixed-precision",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -567,6 +589,15 @@ def main():
         "--enable-lifting",
         action="store_true",
         help="Enable 2D-to-3D pose lifting and return world-space 3D keypoints.",
+    )
+    parser.add_argument(
+        "--camera-intrinsics",
+        type=float,
+        nargs=4,
+        default=None,
+        help=(
+            "Camera intrinsic matrix for 3D lifting. Provide as four floats: fx fy cx cy."
+        ),
     )
     parser.add_argument(
         "--camera-field-of-view",
@@ -638,6 +669,10 @@ def main():
         print(f"SpinePose {__version__}")
         return
 
+    if args.camera_intrinsics is not None:
+        fx, fy, cx, cy = args.camera_intrinsics
+        args.camera_intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
+
     # Check if the input path is a valid image or video
     if _is_image(args.input_path):
         image_mode = True
@@ -649,8 +684,10 @@ def main():
             vis_path=args.vis_path,
             model_version=str(args.model_version),
             hardware_acceleration=args.hardware_acceleration,
+            tensor_rt=args.tensor_rt,
             mixed_precision=args.mixed_precision,
             enable_lifting=args.enable_lifting,
+            camera_intrinsics=args.camera_intrinsics,
             camera_field_of_view=args.camera_field_of_view,
             estimate_metric_scale=args.estimate_metric_scale,
             estimate_camera_pose=args.estimate_camera_pose,
@@ -665,14 +702,17 @@ def main():
             args.input_path,
             args.mode,
             detector=args.detector,
+            det_frequency=args.det_frequency,
             max_detections=args.max_detections,
             spine_only=args.spine_only,
             use_smoothing=args.nosmooth,
             vis_path=args.vis_path,
             model_version=str(args.model_version),
             hardware_acceleration=args.hardware_acceleration,
+            tensor_rt=args.tensor_rt,
             mixed_precision=args.mixed_precision,
             enable_lifting=args.enable_lifting,
+            camera_intrinsics=args.camera_intrinsics,
             camera_field_of_view=args.camera_field_of_view,
             estimate_metric_scale=args.estimate_metric_scale,
             estimate_camera_pose=args.estimate_camera_pose,
