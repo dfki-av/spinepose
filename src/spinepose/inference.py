@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import gc
 import json
 import os
@@ -15,6 +16,29 @@ from spinepose._version import __version__
 from spinepose.pose_estimator import SpinePoseEstimator
 from spinepose.pose_tracker import PoseTracker
 from spinepose.tools.visualization import draw_world_pose_panel
+
+
+class FPS:
+	def __init__(self):
+		self._start = None
+		self._end = None
+		self._frame_count = 0
+
+	def start(self):
+		self._start = datetime.datetime.now()
+		return self
+
+	def stop(self):
+		self._end = datetime.datetime.now()
+
+	def update(self):
+		self._frame_count += 1
+
+	def elapsed(self):
+		return (self._end - self._start).total_seconds()
+
+	def fps(self):
+		return self._frame_count / self.elapsed()
 
 
 def _stack_2d_keypoints(keypoints: np.ndarray, scores: np.ndarray) -> np.ndarray:
@@ -331,6 +355,7 @@ def infer_video(
             )
             writer = None
 
+    fps_counter = FPS().start()
     all_results = []
     while True:
         try:
@@ -393,16 +418,19 @@ def infer_video(
                 all_results.append((frame_results, frame_results_3d))
             else:
                 all_results.append(frame_results)
+            fps_counter.update()
         except KeyboardInterrupt:
             print("Inference interrupted by user.")
             break
 
+    fps_counter.stop()
     cap.release()
     cv2.destroyAllWindows()
     if writer is not None:
         writer.close()
     _release_model(pose_tracker)
 
+    print(f"FPS: {fps_counter.fps():.2f}")
     return all_results
 
 
