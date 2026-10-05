@@ -21,7 +21,7 @@ SpinePose is an inference library for spine-aware 2D human pose estimation in th
 > [!WARNING]
 > *Commercial use notice*
 >
-> The SpinePose v1 and v2 model weights are released under the **CC BY-NC 4.0** license and may therefore **not be used for commercial purposes**. This also includes any derivatives created by fine-tuning the released models, or training from scratch using our SpineTrack and SIMSPINE datasets.
+> The SpinePose v1 and v2 model weights are released under the **CC BY-NC 4.0** license and may therefore **not be used for commercial purposes**. This also includes models obtained by fine-tuning the released weights, or models trained using the SpineTrack (CC-BY-NC 4.0) or SIMSPINE (Academic Research License) datasets.
 >
 > DFKI is currently **not processing requests for separate commercial licenses** for these models. Please do not contact the authors regarding commercial licensing at this time.
 > 
@@ -413,7 +413,7 @@ _Modeling spinal motion is fundamental to understanding human biomechanics, yet 
     booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
     month     = {June},
     year      = {2026},
-    pages     = {}
+    pages     = {21176-21187}
 }
 ```
 
